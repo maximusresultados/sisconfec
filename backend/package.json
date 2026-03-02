@@ -1,0 +1,26 @@
+{
+  "name": "sisconfec-backend",
+  "version": "0.1.0",
+  "description": "API auxiliar do SisConfec — regras de negócio e relatórios",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev":   "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "cors":                  "^2.8.5",
+    "dotenv":                "^16.4.5",
+    "express":               "^4.19.2",
+    "express-async-errors":  "^3.1.1",
+    "jsonwebtoken":          "^9.0.2",
+    "zod":                   "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

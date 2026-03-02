@@ -1,0 +1,188 @@
+/**
+ * useInventory — Hook de gerenciamento de estoque
+ *
+ * Encapsula todas as operações de leitura e escrita relacionadas
+ * a tecidos e movimentações de estoque.
+ */
+import { useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+
+export function useInventory() {
+  const { profile } = useAuth()
+  const tenantId    = profile?.tenant_id
+
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState(null)
+
+  // ------- TECIDOS -------
+
+  /** Lista todos os tecidos ativos do tenant */
+  const fetchFabrics = useCallback(async (filters = {}) => {
+    setLoading(true)
+    setError(null)
+    try {
+      let query = supabase
+        .from('fabrics')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('code')
+
+      if (filters.search) {
+        query = query.or(`code.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+      }
+      if (filters.supplier) {
+        query = query.eq('supplier', filters.supplier)
+      }
+      if (filters.lowStockOnly) {
+        query = query.lte('current_stock', supabase.raw('minimum_stock'))
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data
+    } catch (err) {
+      setError(err.message)
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [tenantId])
+
+  /** Busca um tecido por ID */
+  const fetchFabricById = useCallback(async (id) => {
+    const { data, error } = await supabase
+      .from('fabrics')
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (error) throw error
+    return data
+  }, [tenantId])
+
+  /** Cria um novo tecido */
+  const createFabric = useCallback(async (fabricData) => {
+    const { data, error } = await supabase
+      .from('fabrics')
+      .insert({ ...fabricData, tenant_id: tenantId, created_by: profile.id })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }, [tenantId, profile?.id])
+
+  /** Atualiza dados de um tecido (não atualiza estoque diretamente) */
+  const updateFabric = useCallback(async (id, updates) => {
+    const { data, error } = await supabase
+      .from('fabrics')
+      .update(updates)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }, [tenantId])
+
+  /** Soft delete — desativa o tecido */
+  const deactivateFabric = useCallback(async (id) => {
+    return updateFabric(id, { is_active: false })
+  }, [updateFabric])
+
+  // ------- MOVIMENTAÇÕES (KARDEX) -------
+
+  /**
+   * Registra uma entrada de estoque.
+   * O recálculo de preço médio é feito pelo backend auxiliar (Node.js).
+   * Este hook chama o endpoint /api/inventory/entrada que faz tudo atomicamente.
+   */
+  const registerEntry = useCallback(async ({ fabricId, quantity, unitCost, referenceDoc, notes }) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/inventory/entrada`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({ fabricId, quantity, unitCost, referenceDoc, notes }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.message || 'Erro ao registrar entrada')
+      }
+
+      return response.json()
+    } catch (err) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Registra uma saída de estoque.
+   * O backend valida se há saldo suficiente antes de debitar.
+   */
+  const registerExit = useCallback(async ({ fabricId, quantity, cuttingOrderId, notes }) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/inventory/saida`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({ fabricId, quantity, cuttingOrderId, notes }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.message || 'Erro ao registrar saída')
+      }
+
+      return response.json()
+    } catch (err) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /** Busca o Kardex de um tecido específico */
+  const fetchKardex = useCallback(async (fabricId, { limit = 50, offset = 0 } = {}) => {
+    const { data, error } = await supabase
+      .from('vw_kardex')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('fabric_id', fabricId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) throw error
+    return data
+  }, [tenantId])
+
+  return {
+    loading,
+    error,
+    fetchFabrics,
+    fetchFabricById,
+    createFabric,
+    updateFabric,
+    deactivateFabric,
+    registerEntry,
+    registerExit,
+    fetchKardex,
+  }
+}
