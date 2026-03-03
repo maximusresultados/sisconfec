@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Plus, Search, RefreshCw, AlertTriangle, Package } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useInventory } from '@/hooks/useInventory'
 import { Button } from '@/components/common/Button'
