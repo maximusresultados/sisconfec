@@ -6,7 +6,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Scissors, Shirt,
-  Users, BarChart2, ChevronRight, LogOut,
+  Users, BarChart2, ChevronRight, LogOut, ClipboardList,
 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useAuth } from '@/contexts/AuthContext'
@@ -134,7 +134,8 @@ const NAV_ITEMS = [
   {
     section: 'Produção',
     items: [
-      { to: '/producao/ordens', label: 'Ordens de Corte', icon: Scissors, roles: ['admin','encarregado_corte'] },
+      { to: '/producao/fichas-tecnicas', label: 'Fichas Técnicas', icon: ClipboardList, roles: ['admin','encarregado_corte'] },
+      { to: '/producao/ordens',          label: 'Ordens de Corte', icon: Scissors,      roles: ['admin','encarregado_corte'] },
     ],
   },
   {
@@ -173,7 +174,11 @@ export default function Sidebar() {
   return (
     <SidebarWrapper>
       <Logo>
-        <h1>SisConfec</h1>
+        <img
+          src="/logo-sard.png"
+          alt="Sard"
+          style={{ height: '36px', width: 'auto', filter: 'invert(1)', display: 'block' }}
+        />
         <span>Gestão de Confecção</span>
       </Logo>
 

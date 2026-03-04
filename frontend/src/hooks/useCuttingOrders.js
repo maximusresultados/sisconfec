@@ -26,7 +26,8 @@ export function useCuttingOrders() {
         .from('cutting_orders')
         .select(`
           *,
-          fabric:fabrics(id, code, description, color)
+          fabric:fabrics(id, code, description, color),
+          technical_sheet:technical_sheets(id, product_code, product_name, product_type, description)
         `)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })

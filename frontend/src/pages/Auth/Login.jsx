@@ -109,7 +109,9 @@ export default function Login() {
   return (
     <Page>
       <LoginCard padding="lg">
-        <Title>SisConfec</Title>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+          <img src="/logo-sard.png" alt="Sard" style={{ height: '72px', width: 'auto' }} />
+        </div>
         <Subtitle>Gestão de Estoque e Produção</Subtitle>
 
         <form onSubmit={handleSubmit}>

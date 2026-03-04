@@ -18,7 +18,8 @@ import InventoryMovements from '@/pages/Inventory/InventoryMovements'
 
 // Lazy imports (carregados sob demanda)
 import { lazy, Suspense } from 'react'
-const CuttingOrders    = lazy(() => import('@/pages/Production/CuttingOrders'))
+const CuttingOrders     = lazy(() => import('@/pages/Production/CuttingOrders'))
+const TechnicalSheets   = lazy(() => import('@/pages/Production/TechnicalSheets'))
 const FactionDispatches = lazy(() => import('@/pages/Faction/FactionDispatches'))
 const Seamstresses     = lazy(() => import('@/pages/Faction/Seamstresses'))
 const Reports          = lazy(() => import('@/pages/Reports/Reports'))
@@ -68,6 +69,7 @@ function App() {
                 <Route path="estoque/movimentacoes"    element={<InventoryMovements />} />
 
                 {/* Produção */}
+                <Route path="producao/fichas-tecnicas" element={<TechnicalSheets />} />
                 <Route path="producao/ordens"          element={<CuttingOrders />} />
 
                 {/* Facção */}

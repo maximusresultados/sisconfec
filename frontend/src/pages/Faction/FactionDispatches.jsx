@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, RefreshCw, RotateCcw, DollarSign } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useFaction } from '@/hooks/useFaction'
+import { useCuttingOrders } from '@/hooks/useCuttingOrders'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
@@ -190,12 +191,14 @@ export default function FactionDispatches() {
     fetchSeamstresses, fetchDispatches,
     createDispatch, registerReturn, registerPayment,
   } = useFaction()
+  const { fetchOrders, fetchExecutions } = useCuttingOrders()
 
-  const [dispatches,   setDispatches]   = useState([])
-  const [seamstresses, setSeamstresses] = useState([])
-  const [search,       setSearch]       = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [payFilter,    setPayFilter]    = useState('')
+  const [dispatches,     setDispatches]     = useState([])
+  const [seamstresses,   setSeamstresses]   = useState([])
+  const [cuttingOrders,  setCuttingOrders]  = useState([])
+  const [search,         setSearch]         = useState('')
+  const [statusFilter,   setStatusFilter]   = useState('')
+  const [payFilter,      setPayFilter]      = useState('')
 
   // Modais
   const [showNewDispatch, setShowNewDispatch] = useState(false)
@@ -206,6 +209,8 @@ export default function FactionDispatches() {
   const [dispatchForm,  setDispatchForm]  = useState({
     dispatch_number: '',
     seamstress_id: '',
+    cutting_order_id: '',
+    price_per_piece: '',
     grade: { ...EMPTY_GRADE },
     expected_return_date: '',
     notes: '',
@@ -229,12 +234,14 @@ export default function FactionDispatches() {
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
-    const [disp, seam] = await Promise.all([
+    const [disp, seam, orders] = await Promise.all([
       fetchDispatches(),
       fetchSeamstresses(),
+      fetchOrders({ status: 'aprovado' }),
     ])
     setDispatches(disp)
     setSeamstresses(seam)
+    setCuttingOrders(orders)
   }
 
   // Filtra localmente
@@ -258,6 +265,8 @@ export default function FactionDispatches() {
     setDispatchForm({
       dispatch_number: suggestedNumber,
       seamstress_id: '',
+      cutting_order_id: '',
+      price_per_piece: '',
       grade: { ...EMPTY_GRADE },
       expected_return_date: '',
       notes: '',
@@ -269,6 +278,45 @@ export default function FactionDispatches() {
   function setDispatchField(key, value) {
     setDispatchForm(f => ({ ...f, [key]: value }))
   }
+
+  async function handleCuttingOrderChange(orderId) {
+    setDispatchField('cutting_order_id', orderId)
+    if (!orderId) return
+    try {
+      const execs = await fetchExecutions(orderId)
+      const exec  = execs[0]
+      if (exec) {
+        setDispatchForm(f => ({
+          ...f,
+          cutting_order_id: orderId,
+          grade: {
+            pp:  exec.actual_qty_pp  || 0,
+            p:   exec.actual_qty_p   || 0,
+            m:   exec.actual_qty_m   || 0,
+            g:   exec.actual_qty_g   || 0,
+            gg:  exec.actual_qty_gg  || 0,
+            xgg: exec.actual_qty_xgg || 0,
+          },
+        }))
+      }
+    } catch {
+      // se falhar, mantém grade manual
+    }
+  }
+
+  function handleSeamstressChange(seamstressId) {
+    const seam = seamstresses.find(s => s.id === seamstressId)
+    setDispatchForm(f => ({
+      ...f,
+      seamstress_id:  seamstressId,
+      price_per_piece: seam?.price_per_piece != null ? String(seam.price_per_piece) : '',
+    }))
+  }
+
+  // Calcula payment_value a partir do preço por peça e total da grade
+  const dispatchTotal       = Object.values(dispatchForm.grade).reduce((a, v) => a + (Number(v) || 0), 0)
+  const dispatchPriceNum    = Number(dispatchForm.price_per_piece) || 0
+  const dispatchPaymentCalc = dispatchPriceNum > 0 ? (dispatchTotal * dispatchPriceNum).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—'
 
   async function handleSaveDispatch() {
     if (!dispatchForm.dispatch_number.trim()) {
@@ -288,13 +336,13 @@ export default function FactionDispatches() {
     setSavingDispatch(true)
     setDispatchError('')
     try {
-      const seamstress = seamstresses.find(s => s.id === dispatchForm.seamstress_id)
-      const pricePerPiece = Number(seamstress?.price_per_piece) || 0
-      const paymentValue = pricePerPiece > 0 ? total * pricePerPiece : null
+      const pricePerPiece = Number(dispatchForm.price_per_piece) || 0
+      const paymentValue  = pricePerPiece > 0 ? total * pricePerPiece : null
 
       await createDispatch({
         dispatch_number:      dispatchForm.dispatch_number.trim(),
         seamstress_id:        dispatchForm.seamstress_id,
+        cutting_order_id:     dispatchForm.cutting_order_id || null,
         expected_return_date: dispatchForm.expected_return_date || null,
         notes:                dispatchForm.notes || null,
         status:               'enviado',
@@ -560,9 +608,19 @@ export default function FactionDispatches() {
               label="Costureira *"
               id="seamstress_id"
               value={dispatchForm.seamstress_id}
-              onChange={e => setDispatchField('seamstress_id', e.target.value)}
+              onChange={e => handleSeamstressChange(e.target.value)}
               options={seamstressOptions}
               placeholder="Selecione uma costureira..."
+            />
+          </FormRow>
+          <FormRow>
+            <Select
+              label="Ordem de Corte (opcional)"
+              id="cutting_order_id"
+              value={dispatchForm.cutting_order_id}
+              onChange={e => handleCuttingOrderChange(e.target.value)}
+              options={cuttingOrders.map(o => ({ value: o.id, label: `${o.order_number}${o.description ? ` — ${o.description}` : ''} (${o.total_pieces ?? 0} peças)` }))}
+              placeholder="Selecione para auto-preencher a grade..."
             />
           </FormRow>
           <FormRow>
@@ -572,6 +630,17 @@ export default function FactionDispatches() {
               onChange={grade => setDispatchField('grade', grade)}
             />
           </FormRow>
+          <Input
+            label="Valor por Peça (R$)"
+            id="price_per_piece"
+            type="number"
+            min={0}
+            step="0.01"
+            value={dispatchForm.price_per_piece}
+            onChange={e => setDispatchField('price_per_piece', e.target.value)}
+            placeholder="0,00"
+            hint={dispatchForm.price_per_piece ? `Total estimado: R$ ${dispatchPaymentCalc}` : 'Deixe em branco se não aplicável'}
+          />
           <FormRow>
             <Input
               label="Observações"

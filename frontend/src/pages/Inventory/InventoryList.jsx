@@ -151,7 +151,10 @@ const ErrorBanner = styled('div', {
 })
 
 // ------- VALORES INICIAIS -------
-const EMPTY_FABRIC = { code: '', description: '', color: '', supplier: '', unit: 'metro', minimum_stock: '' }
+const EMPTY_FABRIC = {
+  code: '', description: '', color: '', supplier: '', unit: 'metro', minimum_stock: '',
+  composition: '', width_cm: '', weight_kg_per_meter: '', grammage: '', yield_pieces_per_meter: '',
+}
 const EMPTY_ENTRY  = { quantity: '', unitCost: '', referenceDoc: '', notes: '' }
 const EMPTY_EXIT   = { quantity: '', notes: '' }
 
@@ -200,12 +203,17 @@ export default function InventoryList() {
   function openEditFabric(fabric) {
     setEditingId(fabric.id)
     setFabricForm({
-      code:          fabric.code,
-      description:   fabric.description,
-      color:         fabric.color ?? '',
-      supplier:      fabric.supplier ?? '',
-      unit:          fabric.unit,
-      minimum_stock: fabric.minimum_stock,
+      code:                    fabric.code,
+      description:             fabric.description,
+      color:                   fabric.color ?? '',
+      supplier:                fabric.supplier ?? '',
+      unit:                    fabric.unit,
+      minimum_stock:           fabric.minimum_stock,
+      composition:             fabric.composition ?? '',
+      width_cm:                fabric.width_cm ?? '',
+      weight_kg_per_meter:     fabric.weight_kg_per_meter ?? '',
+      grammage:                fabric.grammage ?? '',
+      yield_pieces_per_meter:  fabric.yield_pieces_per_meter ?? '',
     })
     setFormError('')
     setModalFabric(true)
@@ -491,6 +499,56 @@ export default function InventoryList() {
             onChange={e => setFabricForm(f => ({ ...f, minimum_stock: e.target.value }))}
           />
         </div>
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--colors-border)' }}>
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--colors-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+            Dados Técnicos de Corte
+          </p>
+          <div style={{ marginBottom: 12 }}>
+            <Input
+              id="composition"
+              label="Composição"
+              placeholder="Ex: 95% poliéster, 5% elastano"
+              value={fabricForm.composition}
+              onChange={e => setFabricForm(f => ({ ...f, composition: e.target.value }))}
+            />
+          </div>
+          <FormGrid cols="2">
+            <Input
+              id="width_cm"
+              label="Largura (cm)"
+              type="number" min="0" step="0.1"
+              placeholder="Ex: 160"
+              value={fabricForm.width_cm}
+              onChange={e => setFabricForm(f => ({ ...f, width_cm: e.target.value }))}
+            />
+            <Input
+              id="grammage"
+              label="Gramatura (g/m²)"
+              type="number" min="0" step="0.1"
+              placeholder="Ex: 280"
+              value={fabricForm.grammage}
+              onChange={e => setFabricForm(f => ({ ...f, grammage: e.target.value }))}
+            />
+            <Input
+              id="weight_kg_per_meter"
+              label="Peso (kg/metro)"
+              type="number" min="0" step="0.0001"
+              placeholder="Ex: 0.4500"
+              value={fabricForm.weight_kg_per_meter}
+              onChange={e => setFabricForm(f => ({ ...f, weight_kg_per_meter: e.target.value }))}
+            />
+            <Input
+              id="yield_pieces_per_meter"
+              label="Rendimento (peças/metro)"
+              type="number" min="0" step="0.0001"
+              placeholder="Ex: 2.5"
+              value={fabricForm.yield_pieces_per_meter}
+              onChange={e => setFabricForm(f => ({ ...f, yield_pieces_per_meter: e.target.value }))}
+            />
+          </FormGrid>
+        </div>
+
         <ModalFooter>
           <Button variant="secondary" onClick={() => setModalFabric(false)} disabled={saving}>
             Cancelar

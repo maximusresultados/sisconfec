@@ -2,10 +2,12 @@
  * CuttingOrders — Ordens de Corte com Execução e Revisão de Qualidade
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, Scissors, CheckCircle } from 'lucide-react'
+import { Plus, Search, RefreshCw, Scissors, CheckCircle, Printer } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 import { styled } from '@/styles/stitches.config'
 import { useCuttingOrders } from '@/hooks/useCuttingOrders'
 import { useInventory } from '@/hooks/useInventory'
+import { useTechnicalSheets } from '@/hooks/useTechnicalSheets'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
@@ -53,6 +55,7 @@ const EMPTY_ORDER_FORM = {
   order_number: '',
   description: '',
   fabric_id: '',
+  technical_sheet_id: '',
   quantity_meters: '',
   grade: { ...EMPTY_GRADE },
   priority: 'normal',
@@ -214,9 +217,11 @@ export default function CuttingOrders() {
     fetchExecutions, createExecution, reviewExecution,
   } = useCuttingOrders()
   const { fetchFabrics } = useInventory()
+  const { fetchSheets, fetchSheetById } = useTechnicalSheets()
 
   const [orders,       setOrders]       = useState([])
   const [fabrics,      setFabrics]      = useState([])
+  const [sheets,       setSheets]       = useState([])
   const [search,       setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -247,12 +252,14 @@ export default function CuttingOrders() {
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
-    const [ords, fabs] = await Promise.all([
+    const [ords, fabs, shs] = await Promise.all([
       fetchOrders(),
       fetchFabrics(),
+      fetchSheets(),
     ])
     setOrders(ords)
     setFabrics(fabs)
+    setSheets(shs)
   }
 
   // Filtra localmente por busca e status
@@ -271,6 +278,131 @@ export default function CuttingOrders() {
     value: f.id,
     label: `${f.code} — ${f.description}${f.color ? ` (${f.color})` : ''}`,
   }))
+
+  const sheetOptions = sheets.map(s => ({
+    value: s.id,
+    label: `${s.product_code} — ${s.product_name}`,
+  }))
+
+  function handleSheetChange(sheetId) {
+    setOrderField('technical_sheet_id', sheetId)
+    if (sheetId) {
+      const sheet = sheets.find(s => s.id === sheetId)
+      if (sheet && !orderForm.description) {
+        setOrderField('description', sheet.product_name)
+      }
+    }
+  }
+
+  async function generatePDF(order) {
+    const doc = new jsPDF()
+    const margin = 14
+    let y = 20
+
+    // Cabeçalho
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('ORDEM DE CORTE', margin, y)
+    y += 8
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Nº: ${order.order_number}`, margin, y)
+    doc.text(`Data: ${new Date(order.created_at).toLocaleDateString('pt-BR')}`, 100, y)
+    y += 6
+    doc.text(`Status: ${STATUS_LABEL_MAP[order.status] ?? order.status}`, margin, y)
+    doc.text(`Prioridade: ${PRIORITY_LABELS[order.priority] ?? order.priority}`, 100, y)
+    y += 6
+
+    if (order.fabric) {
+      doc.text(`Tecido: ${order.fabric.code} — ${order.fabric.description}${order.fabric.color ? ` (${order.fabric.color})` : ''}`, margin, y)
+      y += 6
+    }
+    if (order.quantity_meters) {
+      doc.text(`Metragem: ${Number(order.quantity_meters).toLocaleString('pt-BR')} metros`, margin, y)
+      y += 6
+    }
+    if (order.due_date) {
+      doc.text(`Prazo: ${new Date(order.due_date).toLocaleDateString('pt-BR')}`, margin, y)
+      y += 6
+    }
+    if (order.description) {
+      doc.text(`Descrição: ${order.description}`, margin, y)
+      y += 6
+    }
+
+    // Grade
+    y += 4
+    doc.setFont('helvetica', 'bold')
+    doc.text('GRADE PLANEJADA', margin, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    const sizes = ['pp','p','m','g','gg','xgg']
+    const labels = ['PP','P','M','G','GG','XGG']
+    sizes.forEach((s, i) => {
+      const qty = order[`qty_${s}`] ?? 0
+      if (qty > 0) {
+        doc.text(`${labels[i]}: ${qty}`, margin + (i * 28), y)
+      }
+    })
+    y += 6
+    doc.text(`Total: ${order.total_pieces ?? 0} peças`, margin, y)
+
+    // Ficha Técnica
+    if (order.technical_sheet_id) {
+      try {
+        const sheet = await fetchSheetById(order.technical_sheet_id)
+        y += 10
+        doc.setLineWidth(0.5)
+        doc.line(margin, y, 196, y)
+        y += 6
+
+        doc.setFontSize(13)
+        doc.setFont('helvetica', 'bold')
+        doc.text('FICHA TÉCNICA', margin, y)
+        y += 7
+
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Produto: ${sheet.product_name}  (${sheet.product_code})`, margin, y)
+        y += 6
+        if (sheet.description) {
+          doc.text(`Descrição: ${sheet.description}`, margin, y)
+          y += 6
+        }
+
+        if (sheet.items?.length > 0) {
+          y += 2
+          doc.setFont('helvetica', 'bold')
+          doc.text('Insumos:', margin, y)
+          y += 6
+          doc.setFont('helvetica', 'normal')
+
+          sheet.items.forEach((item, idx) => {
+            if (y > 270) { doc.addPage(); y = 20 }
+            const tipo = item.item_type ? `[${item.item_type}] ` : ''
+            const qty  = item.quantity_per_piece != null ? ` — ${item.quantity_per_piece} ${item.unit ?? ''}` : ''
+            const cor  = item.color ? ` (${item.color})` : ''
+            doc.text(`${idx + 1}. ${tipo}${item.description}${cor}${qty}`, margin + 4, y)
+            y += 5
+          })
+        }
+      } catch {
+        // se falhar ao buscar a ficha, ignora
+      }
+    }
+
+    if (order.notes) {
+      y += 6
+      doc.setFont('helvetica', 'bold')
+      doc.text('Observações:', margin, y)
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      doc.text(order.notes, margin, y, { maxWidth: 182 })
+    }
+
+    doc.save(`ordem-corte-${order.order_number}.pdf`)
+  }
 
   // ------- NOVA ORDEM -------
   function openNewOrder() {
@@ -298,13 +430,14 @@ export default function CuttingOrders() {
     setOrderError('')
     try {
       await createOrder({
-        order_number:    orderForm.order_number.trim(),
-        description:     orderForm.description || null,
-        fabric_id:       orderForm.fabric_id || null,
-        quantity_meters: orderForm.quantity_meters !== '' ? Number(orderForm.quantity_meters) : null,
-        priority:        orderForm.priority,
-        due_date:        orderForm.due_date || null,
-        notes:           orderForm.notes || null,
+        order_number:       orderForm.order_number.trim(),
+        description:        orderForm.description || null,
+        fabric_id:          orderForm.fabric_id || null,
+        technical_sheet_id: orderForm.technical_sheet_id || null,
+        quantity_meters:    orderForm.quantity_meters !== '' ? Number(orderForm.quantity_meters) : null,
+        priority:           orderForm.priority,
+        due_date:           orderForm.due_date || null,
+        notes:              orderForm.notes || null,
         ...expandGrade(orderForm.grade, 'qty_'),
       })
       setShowNewOrder(false)
@@ -501,6 +634,9 @@ export default function CuttingOrders() {
                               <CheckCircle size={12} /> Revisar
                             </Button>
                           )}
+                          <Button variant="ghost" size="xs" onClick={() => generatePDF(order)}>
+                            <Printer size={12} /> PDF
+                          </Button>
                         </div>
                       </td>
                     )}
@@ -542,6 +678,16 @@ export default function CuttingOrders() {
               value={orderForm.description}
               onChange={e => setOrderField('description', e.target.value)}
               placeholder="Descrição da ordem..."
+            />
+          </FormRow>
+          <FormRow>
+            <Select
+              label="Ficha Técnica"
+              id="technical_sheet_id"
+              value={orderForm.technical_sheet_id}
+              onChange={e => handleSheetChange(e.target.value)}
+              options={sheetOptions}
+              placeholder="Selecione uma ficha técnica..."
             />
           </FormRow>
           <FormRow>
