@@ -2,7 +2,7 @@
  * CuttingOrders — Ordens de Corte com Execução e Revisão de Qualidade
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, Scissors, CheckCircle, Printer } from 'lucide-react'
+import { Plus, Search, RefreshCw, Scissors, CheckCircle, Printer, XCircle } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import { styled } from '@/styles/stitches.config'
 import { useCuttingOrders } from '@/hooks/useCuttingOrders'
@@ -216,7 +216,7 @@ export default function CuttingOrders() {
     fetchOrders, createOrder, updateOrderStatus,
     fetchExecutions, createExecution, reviewExecution,
   } = useCuttingOrders()
-  const { fetchFabrics } = useInventory()
+  const { fetchFabrics, registerExit } = useInventory()
   const { fetchSheets, fetchSheetById } = useTechnicalSheets()
 
   const [orders,       setOrders]       = useState([])
@@ -514,6 +514,24 @@ export default function CuttingOrders() {
       })
       if (reviewStatus === 'aprovado') {
         await updateOrderStatus(showReview.order.id, 'aprovado')
+        // Auto-baixar estoque: usa meters_used da execução (ou quantity_meters da ordem como fallback)
+        const metersToDeduct = showReview.execution.meters_used ?? showReview.order.quantity_meters
+        if (showReview.order.fabric_id && metersToDeduct) {
+          try {
+            await registerExit({
+              fabricId:       showReview.order.fabric_id,
+              quantity:       Number(metersToDeduct),
+              cuttingOrderId: showReview.order.id,
+              notes:          `Baixa automática — Ordem ${showReview.order.order_number}`,
+            })
+          } catch (exitErr) {
+            // Aprovação já foi salva; avisa mas não reverte
+            setReviewError(`Aprovado, mas falha ao baixar estoque: ${exitErr.message}`)
+            setShowReview(null)
+            loadAll()
+            return
+          }
+        }
       }
       setShowReview(null)
       loadAll()
@@ -632,6 +650,17 @@ export default function CuttingOrders() {
                           {order.status === 'cortado' && (
                             <Button variant="secondary" size="xs" onClick={() => openReview(order)}>
                               <CheckCircle size={12} /> Revisar
+                            </Button>
+                          )}
+                          {order.status !== 'cancelado' && order.status !== 'aprovado' && (
+                            <Button variant="ghost" size="xs" style={{ color: '#ef4444' }}
+                              onClick={() => {
+                                if (window.confirm(`Cancelar ordem ${order.order_number}?`)) {
+                                  updateOrderStatus(order.id, 'cancelado').then(loadAll)
+                                }
+                              }}
+                            >
+                              <XCircle size={12} /> Cancelar
                             </Button>
                           )}
                           <Button variant="ghost" size="xs" onClick={() => generatePDF(order)}>

@@ -17,16 +17,15 @@ export function useInventory() {
 
   // ------- TECIDOS -------
 
-  /** Lista todos os tecidos ativos do tenant */
+  /** Lista todos os tecidos ativos do tenant (com reserved_stock e available_stock) */
   const fetchFabrics = useCallback(async (filters = {}) => {
     setLoading(true)
     setError(null)
     try {
       let query = supabase
-        .from('fabrics')
+        .from('vw_fabric_stock')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq('is_active', true)
         .order('code')
 
       if (filters.search) {

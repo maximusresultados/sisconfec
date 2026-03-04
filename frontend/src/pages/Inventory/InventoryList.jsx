@@ -322,7 +322,8 @@ export default function InventoryList() {
   })
 
   function getStockStatus(fabric) {
-    const pct = fabric.minimum_stock > 0 ? fabric.current_stock / fabric.minimum_stock : 2
+    const avail = fabric.available_stock ?? fabric.current_stock
+    const pct = fabric.minimum_stock > 0 ? avail / fabric.minimum_stock : 2
     if (pct <= 0) return { color: '#ef4444', label: 'Esgotado' }
     if (pct <= 1) return { color: '#f59e0b', label: 'Baixo' }
     return           { color: '#22c55e', label: 'OK' }
@@ -374,6 +375,8 @@ export default function InventoryList() {
                   <th>Cor</th>
                   <th>Fornecedor</th>
                   <th>Estoque</th>
+                  <th>Reservado</th>
+                  <th>Disponível</th>
                   <th>Mínimo</th>
                   <th>Preço Médio</th>
                   <th>Status</th>
@@ -383,8 +386,9 @@ export default function InventoryList() {
               <tbody>
                 {filtered.map(fabric => {
                   const status = getStockStatus(fabric)
+                  const avail  = fabric.available_stock ?? fabric.current_stock
                   const pct    = fabric.minimum_stock > 0
-                    ? Math.min((fabric.current_stock / fabric.minimum_stock) * 100, 100)
+                    ? Math.min((avail / fabric.minimum_stock) * 100, 100)
                     : 100
 
                   return (
@@ -403,6 +407,12 @@ export default function InventoryList() {
                           </StockBar>
                         </div>
                       </td>
+                      <MonoCell style={{ color: fabric.reserved_stock > 0 ? '#d97706' : undefined }}>
+                        {Number(fabric.reserved_stock ?? 0).toFixed(2)} {fabric.unit}
+                      </MonoCell>
+                      <MonoCell style={{ color: avail <= 0 ? '#ef4444' : undefined, fontWeight: 600 }}>
+                        {Number(avail).toFixed(2)} {fabric.unit}
+                      </MonoCell>
                       <MonoCell>{Number(fabric.minimum_stock).toFixed(2)} {fabric.unit}</MonoCell>
                       <MonoCell>
                         R$ {Number(fabric.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
@@ -626,7 +636,11 @@ export default function InventoryList() {
       >
         {formError && <ErrorBanner>{formError}</ErrorBanner>}
         <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: 16 }}>
-          Estoque atual: <strong>{Number(targetFabric?.current_stock ?? 0).toFixed(2)} {targetFabric?.unit}</strong>
+          Estoque total: <strong>{Number(targetFabric?.current_stock ?? 0).toFixed(2)} {targetFabric?.unit}</strong>
+          {targetFabric?.reserved_stock > 0 && (
+            <> &nbsp;·&nbsp; Reservado: <strong style={{ color: '#d97706' }}>{Number(targetFabric.reserved_stock).toFixed(2)}</strong>
+            &nbsp;·&nbsp; Disponível: <strong style={{ color: '#16a34a' }}>{Number(targetFabric.available_stock ?? 0).toFixed(2)}</strong></>
+          )}
         </p>
         <Input
           id="exit_qty"
