@@ -226,10 +226,10 @@ export default function Reports() {
   }))
 
   // KPIs de facção
-  const kpiTotalSent     = factionSummary.reduce((a, s) => a + (Number(s.total_sent)      || 0), 0)
-  const kpiTotalReturned = factionSummary.reduce((a, s) => a + (Number(s.total_returned)  || 0), 0)
+  const kpiTotalSent     = factionSummary.reduce((a, s) => a + (Number(s.total_pieces_sent)     || 0), 0)
+  const kpiTotalReturned = factionSummary.reduce((a, s) => a + (Number(s.total_pieces_returned) || 0), 0)
   const kpiBalance       = kpiTotalSent - kpiTotalReturned
-  const kpiPending       = factionSummary.reduce((a, s) => a + (Number(s.pending_payment) || 0), 0)
+  const kpiPending       = factionSummary.reduce((a, s) => a + (Number(s.total_pending_payment) || 0), 0)
 
   return (
     <div>
@@ -307,8 +307,8 @@ export default function Reports() {
                             : '—'}
                         </td>
                         <td>
-                          <Badge color={TypeBadgeMap[row.transaction_type] ?? 'default'}>
-                            {TypeLabelMap[row.transaction_type] ?? row.transaction_type}
+                          <Badge color={TypeBadgeMap[row.type] ?? 'default'}>
+                            {TypeLabelMap[row.type] ?? row.type}
                           </Badge>
                         </td>
                         <MonoCell>{Number(row.quantity).toFixed(2)}</MonoCell>
@@ -321,13 +321,13 @@ export default function Reports() {
                         <MonoCell>{Number(row.stock_before ?? 0).toFixed(2)}</MonoCell>
                         <MonoCell>{Number(row.stock_after ?? 0).toFixed(2)}</MonoCell>
                         <MonoCell>
-                          R$ {Number(row.avg_price_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                          R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
                         </MonoCell>
                         <MonoCell>
-                          R$ {Number(row.avg_price_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                          R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
                         </MonoCell>
                         <td>{row.reference_doc ?? '—'}</td>
-                        <td>{row.user_name ?? row.created_by ?? '—'}</td>
+                        <td>{row.created_by_name ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -450,8 +450,8 @@ export default function Reports() {
                   </thead>
                   <tbody>
                     {factionSummary.map((row, i) => {
-                      const sent     = Number(row.total_sent) || 0
-                      const returned = Number(row.total_returned) || 0
+                      const sent     = Number(row.total_pieces_sent) || 0
+                      const returned = Number(row.total_pieces_returned) || 0
                       const pct      = sent > 0 ? ((returned / sent) * 100).toFixed(1) : '—'
                       return (
                         <tr key={row.seamstress_id ?? i}>
@@ -467,8 +467,8 @@ export default function Reports() {
                             ) : '—'}
                           </td>
                           <MonoCell>
-                            {row.pending_payment != null
-                              ? `R$ ${Number(row.pending_payment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                            {row.total_pending_payment != null
+                              ? `R$ ${Number(row.total_pending_payment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                               : '—'}
                           </MonoCell>
                         </tr>

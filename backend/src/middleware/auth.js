@@ -1,10 +1,9 @@
 /**
  * Middleware de Autenticação
  *
- * Valida o JWT do Supabase enviado pelo frontend no header Authorization.
+ * Valida o JWT do Supabase usando o próprio cliente Admin (getUser).
  * Adiciona `req.user` com { id, email, role, tenant_id } para as rotas.
  */
-import jwt from 'jsonwebtoken'
 import { supabaseAdmin } from '../config/supabase.js'
 
 export async function authenticate(req, res, next) {
@@ -16,14 +15,18 @@ export async function authenticate(req, res, next) {
   const token = authHeader.slice(7)
 
   try {
-    // Valida o JWT usando o secret do Supabase
-    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET)
+    // Verifica o token via Supabase Admin — não depende do JWT_SECRET manual
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+    if (authError || !user) {
+      return res.status(401).json({ message: 'Token inválido ou expirado.' })
+    }
 
     // Busca o perfil do usuário (role + tenant_id)
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, role, tenant_id, is_active')
-      .eq('id', decoded.sub)
+      .eq('id', user.id)
       .single()
 
     if (error || !profile) {

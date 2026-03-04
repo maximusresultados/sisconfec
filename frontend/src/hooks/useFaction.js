@@ -59,7 +59,7 @@ export function useFaction() {
   const createSeamstress = useCallback(async (data) => {
     const { data: result, error } = await supabase
       .from('seamstresses')
-      .insert({ ...data, tenant_id: tenantId, created_by: profile?.id })
+      .insert({ ...data, tenant_id: tenantId })
       .select()
       .single()
 

@@ -218,9 +218,9 @@ export default function Seamstresses() {
     (s.city ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const kpiTotalSent     = summary.reduce((a, s) => a + (Number(s.total_sent)     || 0), 0)
-  const kpiTotalReturned = summary.reduce((a, s) => a + (Number(s.total_returned) || 0), 0)
-  const kpiTotalPending  = summary.reduce((a, s) => a + (Number(s.pending_payment)|| 0), 0)
+  const kpiTotalSent     = summary.reduce((a, s) => a + (Number(s.total_pieces_sent)     || 0), 0)
+  const kpiTotalReturned = summary.reduce((a, s) => a + (Number(s.total_pieces_returned) || 0), 0)
+  const kpiTotalPending  = summary.reduce((a, s) => a + (Number(s.total_pending_payment) || 0), 0)
 
   function openNew() {
     setEditing(null)
@@ -393,8 +393,8 @@ export default function Seamstresses() {
                       </td>
                       <td>{summ?.total_dispatches ?? 0}</td>
                       <td>
-                        {summ?.pending_payment != null
-                          ? `R$ ${Number(summ.pending_payment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        {summ?.total_pending_payment != null
+                          ? `R$ ${Number(summ.total_pending_payment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                           : '—'}
                       </td>
                       {canManage && (

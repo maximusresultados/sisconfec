@@ -27,11 +27,17 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session) loadProfile()
-      setLoading(false)
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session)
+        if (session) loadProfile()
+      })
+      .catch((err) => {
+        console.error('Erro ao obter sessão:', err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
 
     // Listener de mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

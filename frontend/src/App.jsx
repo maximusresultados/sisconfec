@@ -14,6 +14,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import Login         from '@/pages/Auth/Login'
 import Dashboard     from '@/pages/Dashboard/Dashboard'
 import InventoryList from '@/pages/Inventory/InventoryList'
+import InventoryMovements from '@/pages/Inventory/InventoryMovements'
 
 // Lazy imports (carregados sob demanda)
 import { lazy, Suspense } from 'react'
@@ -64,7 +65,7 @@ function App() {
 
                 {/* Estoque */}
                 <Route path="estoque/tecidos"          element={<InventoryList />} />
-                <Route path="estoque/movimentacoes"    element={<InventoryList />} />
+                <Route path="estoque/movimentacoes"    element={<InventoryMovements />} />
 
                 {/* Produção */}
                 <Route path="producao/ordens"          element={<CuttingOrders />} />

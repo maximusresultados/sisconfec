@@ -57,9 +57,13 @@ app.use((err, req, res, _next) => {
   })
 })
 
-// ------- INICIA SERVIDOR -------
-app.listen(PORT, () => {
-  console.log(`✔  SisConfec API rodando em http://localhost:${PORT}`)
-  console.log(`   Ambiente: ${process.env.NODE_ENV ?? 'development'}`)
-  console.log(`   Supabase: ${process.env.SUPABASE_URL}`)
-})
+// ------- INICIA SERVIDOR (local) / EXPORTA (Vercel) -------
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`✔  SisConfec API rodando em http://localhost:${PORT}`)
+    console.log(`   Ambiente: ${process.env.NODE_ENV ?? 'development'}`)
+    console.log(`   Supabase: ${process.env.SUPABASE_URL}`)
+  })
+}
+
+export default app

@@ -288,6 +288,10 @@ export default function FactionDispatches() {
     setSavingDispatch(true)
     setDispatchError('')
     try {
+      const seamstress = seamstresses.find(s => s.id === dispatchForm.seamstress_id)
+      const pricePerPiece = Number(seamstress?.price_per_piece) || 0
+      const paymentValue = pricePerPiece > 0 ? total * pricePerPiece : null
+
       await createDispatch({
         dispatch_number:      dispatchForm.dispatch_number.trim(),
         seamstress_id:        dispatchForm.seamstress_id,
@@ -295,6 +299,7 @@ export default function FactionDispatches() {
         notes:                dispatchForm.notes || null,
         status:               'enviado',
         payment_status:       'pendente',
+        payment_value:        paymentValue,
         qty_pp_sent:  dispatchForm.grade.pp  || 0,
         qty_p_sent:   dispatchForm.grade.p   || 0,
         qty_m_sent:   dispatchForm.grade.m   || 0,
