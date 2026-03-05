@@ -171,20 +171,20 @@ const DetailLabel = styled('p', { fontSize: '$xs', color: '$textSecondary', marg
 const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color: '$textPrimary' })
 
 const StockSummary = styled('div', {
-  display: 'flex',
-  gap: '$4',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: '$3',
   padding: '$4',
   borderRadius: '$lg',
   backgroundColor: '$gray50',
   marginBottom: '$4',
-  flexWrap: 'wrap',
 })
 
 const StockFigure = styled('div', {
-  flex: 1,
-  minWidth: '80px',
-  '& .val': { fontSize: '$xl', fontWeight: '$bold', color: '$textPrimary', lineHeight: '$tight' },
-  '& .lbl': { fontSize: '$xs', color: '$textSecondary', marginTop: '2px' },
+  textAlign: 'center',
+  padding: '$2 $1',
+  '& .val': { fontSize: '$2xl', fontWeight: '$bold', color: '$textPrimary', lineHeight: '1' },
+  '& .lbl': { fontSize: '$xs', color: '$textSecondary', marginTop: '$1', lineHeight: '$normal' },
 })
 
 const FormGrid = styled('div', {

@@ -2,7 +2,7 @@
  * TechnicalSheets — Cadastro e gestão de fichas técnicas de produtos
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, Edit2, FileText, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, Search, Edit2, FileText, Trash2, RefreshCw, ChevronRight } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useTechnicalSheets } from '@/hooks/useTechnicalSheets'
 import { useAuth } from '@/contexts/AuthContext'
@@ -89,6 +89,26 @@ const ItemFormGrid = styled('div', {
   padding: '$3', backgroundColor: '$gray50', borderRadius: '$md', border: '1px solid $border',
 })
 
+const ClickableRow = styled('tr', {
+  cursor: 'pointer',
+  '& td': { transition: 'background-color 0.15s' },
+  '&:hover td': { backgroundColor: '$primary50 !important' },
+})
+
+const DetailSection = styled('div', {
+  '& + &': { marginTop: '$4', paddingTop: '$4', borderTop: '1px solid $border' },
+})
+const DetailSectionTitle = styled('p', {
+  fontSize: '$xs', fontWeight: '$semibold', color: '$textSecondary',
+  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '$3',
+})
+const DetailGrid = styled('div', {
+  display: 'grid', gap: '$3', gridTemplateColumns: '1fr 1fr',
+})
+const DetailField = styled('div', {})
+const DetailLabel = styled('p', { fontSize: '$xs', color: '$textSecondary', marginBottom: '2px' })
+const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color: '$textPrimary' })
+
 // ------- COMPONENTE -------
 export default function TechnicalSheets() {
   const { isAdmin, isEncarregadoCorte } = useAuth()
@@ -103,6 +123,10 @@ export default function TechnicalSheets() {
   const [editing,    setEditing]    = useState(null)
   const [sheetForm,  setSheetForm]  = useState(EMPTY_SHEET)
   const [sheetError, setSheetError] = useState('')
+
+  // Modal Detalhe
+  const [detailSheet,    setDetailSheet]    = useState(null)
+  const [loadingDetail,  setLoadingDetail]  = useState(false)
 
   // Modal Insumos
   const [showItems,  setShowItems]  = useState(false)
@@ -125,6 +149,17 @@ export default function TechnicalSheets() {
     s.product_name.toLowerCase().includes(search.toLowerCase()) ||
     s.product_code.toLowerCase().includes(search.toLowerCase())
   )
+
+  // ------- MODAL DETALHE -------
+  async function openDetail(sheet) {
+    setDetailSheet({ ...sheet, items: null })
+    setLoadingDetail(true)
+    try {
+      const full = await fetchSheetById(sheet.id)
+      setDetailSheet(full)
+    } catch { /* mostra sem itens */ }
+    finally { setLoadingDetail(false) }
+  }
 
   // ------- MODAL FICHA -------
   function openNew() {
@@ -304,7 +339,7 @@ export default function TechnicalSheets() {
               </thead>
               <tbody>
                 {filtered.map(sheet => (
-                  <tr key={sheet.id}>
+                  <ClickableRow key={sheet.id} onClick={() => openDetail(sheet)}>
                     <td><strong>{sheet.product_code}</strong></td>
                     <td>{sheet.product_name}</td>
                     <td>
@@ -318,7 +353,7 @@ export default function TechnicalSheets() {
                       </Badge>
                     </td>
                     {canManage && (
-                      <td>
+                      <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <Button variant="ghost" size="xs" onClick={() => openItems(sheet)}>
                             <FileText size={12} /> Insumos
@@ -332,13 +367,102 @@ export default function TechnicalSheets() {
                         </div>
                       </td>
                     )}
-                  </tr>
+                    {!canManage && (
+                      <td>
+                        <ChevronRight size={13} style={{ color: '#d1d5db' }} />
+                      </td>
+                    )}
+                  </ClickableRow>
                 ))}
               </tbody>
             </Table>
           )}
         </CardBody>
       </Card>
+
+      {/* ======== MODAL DETALHE FICHA TÉCNICA ======== */}
+      {detailSheet && (
+        <Modal
+          open={!!detailSheet}
+          onClose={() => setDetailSheet(null)}
+          title={`${detailSheet.product_code} — ${detailSheet.product_name}`}
+          size="lg"
+        >
+          {/* Informações do produto */}
+          <DetailSection>
+            <DetailSectionTitle>Dados do Produto</DetailSectionTitle>
+            <DetailGrid>
+              <DetailField>
+                <DetailLabel>Código</DetailLabel>
+                <DetailValue>{detailSheet.product_code}</DetailValue>
+              </DetailField>
+              <DetailField>
+                <DetailLabel>Tipo</DetailLabel>
+                <DetailValue>
+                  {detailSheet.product_type
+                    ? PRODUCT_TYPES.find(t => t.value === detailSheet.product_type)?.label ?? detailSheet.product_type
+                    : '—'}
+                </DetailValue>
+              </DetailField>
+              {detailSheet.description && (
+                <DetailField css={{ gridColumn: '1 / -1' }}>
+                  <DetailLabel>Descrição</DetailLabel>
+                  <DetailValue style={{ fontWeight: 400 }}>{detailSheet.description}</DetailValue>
+                </DetailField>
+              )}
+            </DetailGrid>
+          </DetailSection>
+
+          {/* Lista de insumos */}
+          <DetailSection>
+            <DetailSectionTitle>
+              Insumos {loadingDetail ? '(carregando...)' : `(${detailSheet.items?.length ?? 0})`}
+            </DetailSectionTitle>
+            {!loadingDetail && detailSheet.items?.length > 0 ? (
+              <ItemTable>
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Cor</th>
+                    <th>Qtd/Peça</th>
+                    <th>Un.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailSheet.items.map(item => (
+                    <tr key={item.id}>
+                      <td><Badge color="default">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type ?? '—'}</Badge></td>
+                      <td>{item.description}</td>
+                      <td>{item.color || '—'}</td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {item.quantity_per_piece != null ? Number(item.quantity_per_piece).toLocaleString('pt-BR') : '—'}
+                      </td>
+                      <td>{item.unit ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </ItemTable>
+            ) : !loadingDetail ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--colors-textSecondary)' }}>Nenhum insumo cadastrado.</p>
+            ) : null}
+          </DetailSection>
+
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setDetailSheet(null)}>Fechar</Button>
+            {canManage && (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => { setDetailSheet(null); openEdit(detailSheet) }}>
+                  <Edit2 size={14} /> Editar
+                </Button>
+                <Button size="sm" onClick={() => { setDetailSheet(null); openItems(detailSheet) }}>
+                  <FileText size={14} /> Gerenciar Insumos
+                </Button>
+              </>
+            )}
+          </ModalFooter>
+        </Modal>
+      )}
 
       {/* ======== MODAL CRIAR/EDITAR FICHA ======== */}
       <Modal

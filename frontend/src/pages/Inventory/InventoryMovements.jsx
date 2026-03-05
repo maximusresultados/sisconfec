@@ -17,40 +17,54 @@ const PageTitle = styled('h2', {
   marginBottom: '$6',
 })
 
+const TableWrap = styled('div', {
+  width: '100%',
+  overflowX: 'auto',
+  borderRadius: '$xl',
+})
+
 const Table = styled('table', {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '$sm',
+  whiteSpace: 'nowrap',
 
   th: {
     textAlign: 'left',
-    py: '$3',
-    px: '$4',
+    py: '$2',
+    px: '$3',
     color: '$textSecondary',
     fontWeight: '$medium',
-    borderBottom: '1px solid $border',
+    borderBottom: '2px solid $border',
     fontSize: '$xs',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
-    whiteSpace: 'nowrap',
     backgroundColor: '$gray50',
   },
 
   td: {
-    py: '$3',
-    px: '$4',
+    py: '$2',
+    px: '$3',
     borderBottom: '1px solid $border',
     color: '$textPrimary',
     verticalAlign: 'middle',
+    whiteSpace: 'nowrap',
   },
 
   'tr:last-child td': { borderBottom: 'none' },
   'tbody tr:hover td': { backgroundColor: '$gray50' },
 })
 
-const MonoCell = styled('td', {
+const NumCell = styled('td', {
   fontVariantNumeric: 'tabular-nums',
   fontSize: '$sm',
+  whiteSpace: 'nowrap',
+  py: '$2',
+  px: '$3',
+  borderBottom: '1px solid $border',
+  color: '$textPrimary',
+  verticalAlign: 'middle',
+  'tr:last-child &': { borderBottom: 'none' },
 })
 
 const EmptyState = styled('div', {
@@ -98,63 +112,54 @@ export default function InventoryMovements() {
               <p>Nenhuma movimentação registrada.</p>
             </EmptyState>
           ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Tipo</th>
-                  <th>Tecido</th>
-                  <th>Qtd</th>
-                  <th>Custo Unit.</th>
-                  <th>Total</th>
-                  <th>Estoque Antes</th>
-                  <th>Estoque Depois</th>
-                  <th>PM Antes</th>
-                  <th>PM Depois</th>
-                  <th>Referência</th>
-                  <th>Usuário</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={row.id ?? i}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {row.created_at
-                        ? new Date(row.created_at).toLocaleDateString('pt-BR')
-                        : '—'}
-                    </td>
-                    <td>
-                      <Badge color={row.type === 'entrada' ? 'success' : 'danger'}>
-                        {row.type === 'entrada'
-                          ? <><ArrowDownCircle size={11} /> Entrada</>
-                          : <><ArrowUpCircle size={11} /> Saída</>}
-                      </Badge>
-                    </td>
-                    <td>
-                      <strong>{row.fabric_code}</strong>
-                      <span style={{ color: '#6b7280', marginLeft: 6 }}>{row.fabric_description}</span>
-                    </td>
-                    <MonoCell>{Number(row.quantity).toFixed(2)}</MonoCell>
-                    <MonoCell>
-                      R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </MonoCell>
-                    <MonoCell>
-                      R$ {Number(row.total_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </MonoCell>
-                    <MonoCell>{Number(row.stock_before ?? 0).toFixed(2)}</MonoCell>
-                    <MonoCell>{Number(row.stock_after ?? 0).toFixed(2)}</MonoCell>
-                    <MonoCell>
-                      R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </MonoCell>
-                    <MonoCell>
-                      R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </MonoCell>
-                    <td>{row.reference_doc ?? '—'}</td>
-                    <td>{row.created_by_name ?? '—'}</td>
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Tipo</th>
+                    <th>Código</th>
+                    <th>Qtd</th>
+                    <th>Custo Unit.</th>
+                    <th>Total</th>
+                    <th>Estq. Antes</th>
+                    <th>Estq. Depois</th>
+                    <th>PM Antes</th>
+                    <th>PM Depois</th>
+                    <th>Referência</th>
+                    <th>Usuário</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={row.id ?? i}>
+                      <td>
+                        {row.created_at
+                          ? new Date(row.created_at).toLocaleDateString('pt-BR')
+                          : '—'}
+                      </td>
+                      <td>
+                        <Badge color={row.type === 'entrada' ? 'success' : 'danger'}>
+                          {row.type === 'entrada'
+                            ? <><ArrowDownCircle size={11} /> Entrada</>
+                            : <><ArrowUpCircle size={11} /> Saída</>}
+                        </Badge>
+                      </td>
+                      <td><strong>{row.fabric_code}</strong></td>
+                      <NumCell>{Number(row.quantity).toFixed(2)}</NumCell>
+                      <NumCell>R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</NumCell>
+                      <NumCell>R$ {Number(row.total_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</NumCell>
+                      <NumCell>{Number(row.stock_before ?? 0).toFixed(2)}</NumCell>
+                      <NumCell>{Number(row.stock_after ?? 0).toFixed(2)}</NumCell>
+                      <NumCell>R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</NumCell>
+                      <NumCell>R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</NumCell>
+                      <td style={{ color: '#6b7280' }}>{row.reference_doc ?? '—'}</td>
+                      <td style={{ color: '#6b7280' }}>{row.created_by_name ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
           )}
         </CardBody>
       </Card>

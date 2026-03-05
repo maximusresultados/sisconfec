@@ -2,7 +2,7 @@
  * FactionDispatches — Remessas para Facção com Retorno e Pagamento
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, RotateCcw, DollarSign } from 'lucide-react'
+import { Plus, Search, RefreshCw, RotateCcw, DollarSign, ChevronRight } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useFaction } from '@/hooks/useFaction'
 import { useCuttingOrders } from '@/hooks/useCuttingOrders'
@@ -182,6 +182,55 @@ const InfoBox = styled('div', {
   lineHeight: '$normal',
 })
 
+const ClickableRow = styled('tr', {
+  cursor: 'pointer',
+  '& td': { transition: 'background-color 0.15s' },
+  '&:hover td': { backgroundColor: '$primary50 !important' },
+})
+
+const DetailKpiGrid = styled('div', {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: '$3',
+  marginBottom: '$4',
+})
+const DetailKpi = styled('div', {
+  textAlign: 'center',
+  padding: '$3',
+  backgroundColor: '$gray50',
+  borderRadius: '$lg',
+  '& .val': { fontSize: '$xl', fontWeight: '$bold', color: '$textPrimary', lineHeight: '1' },
+  '& .lbl': { fontSize: '$xs', color: '$textSecondary', marginTop: '$1' },
+})
+
+const DetailRow = styled('div', {
+  display: 'flex',
+  gap: '$6',
+  flexWrap: 'wrap',
+  marginBottom: '$3',
+})
+const DetailField = styled('div', { minWidth: 120 })
+const DetailLabel = styled('p', { fontSize: '$xs', color: '$textSecondary', marginBottom: '2px' })
+const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color: '$textPrimary' })
+
+const GradeCompare = styled('table', {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '$sm',
+  marginBottom: '$4',
+  th: {
+    textAlign: 'center', py: '$2', px: '$3', fontSize: '$xs', fontWeight: '$semibold',
+    color: '$textSecondary', textTransform: 'uppercase', borderBottom: '2px solid $border',
+    backgroundColor: '$gray50',
+  },
+  td: {
+    textAlign: 'center', py: '$2', px: '$3', borderBottom: '1px solid $border',
+    fontVariantNumeric: 'tabular-nums', fontSize: '$sm',
+  },
+  'tr:last-child td': { borderBottom: 'none' },
+  'td:first-child': { textAlign: 'left', fontWeight: '$medium', color: '$textSecondary' },
+})
+
 // ------- COMPONENTE -------
 export default function FactionDispatches() {
   const { isGestorFaccao, isAdmin } = useAuth()
@@ -198,6 +247,9 @@ export default function FactionDispatches() {
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('')
   const [payFilter,      setPayFilter]      = useState('')
+
+  // Detalhe
+  const [detailDispatch, setDetailDispatch] = useState(null)
 
   // Modais
   const [showNewDispatch, setShowNewDispatch] = useState(false)
@@ -529,10 +581,10 @@ export default function FactionDispatches() {
                 {filtered.map(d => {
                   const balance = calcBalance(d)
                   return (
-                    <tr key={d.id}>
+                    <ClickableRow key={d.id} onClick={() => setDetailDispatch(d)}>
                       <td><strong>{d.dispatch_number}</strong></td>
                       <td>{d.seamstress?.name ?? '—'}</td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {d.created_at
                           ? new Date(d.created_at).toLocaleDateString('pt-BR')
                           : '—'}
@@ -555,7 +607,7 @@ export default function FactionDispatches() {
                         </Badge>
                       </td>
                       {canManage && (
-                        <td>
+                        <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             {(d.status === 'enviado' || d.status === 'em_producao') && (
                               <Button variant="secondary" size="xs" onClick={() => openReturn(d)}>
@@ -567,10 +619,13 @@ export default function FactionDispatches() {
                                 <DollarSign size={12} /> Pagar
                               </Button>
                             )}
+                            {d.status !== 'enviado' && d.status !== 'em_producao' && d.payment_status !== 'pendente' && (
+                              <ChevronRight size={13} style={{ color: '#d1d5db' }} />
+                            )}
                           </div>
                         </td>
                       )}
-                    </tr>
+                    </ClickableRow>
                   )
                 })}
               </tbody>
@@ -578,6 +633,143 @@ export default function FactionDispatches() {
           )}
         </CardBody>
       </Card>
+
+      {/* ======== MODAL DETALHE REMESSA ======== */}
+      {detailDispatch && (() => {
+        const d       = detailDispatch
+        const balance = calcBalance(d)
+        const sizes   = ['PP','P','M','G','GG','XGG']
+        const sentVals     = [d.qty_pp_sent,d.qty_p_sent,d.qty_m_sent,d.qty_g_sent,d.qty_gg_sent,d.qty_xgg_sent]
+        const returnedVals = [d.qty_pp_returned,d.qty_p_returned,d.qty_m_returned,d.qty_g_returned,d.qty_gg_returned,d.qty_xgg_returned]
+        const hasSizes = sentVals.some(v => (v ?? 0) > 0)
+
+        return (
+          <Modal
+            open={!!detailDispatch}
+            onClose={() => setDetailDispatch(null)}
+            title={`Remessa ${d.dispatch_number}`}
+            size="lg"
+          >
+            {/* KPIs */}
+            <DetailKpiGrid>
+              <DetailKpi>
+                <div className="val">{d.total_sent ?? 0}</div>
+                <div className="lbl">Peças Enviadas</div>
+              </DetailKpi>
+              <DetailKpi>
+                <div className="val">{d.total_returned ?? 0}</div>
+                <div className="lbl">Peças Retornadas</div>
+              </DetailKpi>
+              <DetailKpi>
+                <div className="val" style={{ color: balance > 0 ? '#b45309' : '#15803d' }}>{balance}</div>
+                <div className="lbl">Saldo em Aberto</div>
+              </DetailKpi>
+            </DetailKpiGrid>
+
+            {/* Dados */}
+            <DetailRow>
+              <DetailField>
+                <DetailLabel>Costureira</DetailLabel>
+                <DetailValue>{d.seamstress?.name ?? '—'}</DetailValue>
+              </DetailField>
+              <DetailField>
+                <DetailLabel>Data de Envio</DetailLabel>
+                <DetailValue>{d.created_at ? new Date(d.created_at).toLocaleDateString('pt-BR') : '—'}</DetailValue>
+              </DetailField>
+              {d.expected_return_date && (
+                <DetailField>
+                  <DetailLabel>Previsão Retorno</DetailLabel>
+                  <DetailValue>{new Date(d.expected_return_date + 'T00:00:00').toLocaleDateString('pt-BR')}</DetailValue>
+                </DetailField>
+              )}
+              {d.returned_at && (
+                <DetailField>
+                  <DetailLabel>Data Retorno</DetailLabel>
+                  <DetailValue>{new Date(d.returned_at).toLocaleDateString('pt-BR')}</DetailValue>
+                </DetailField>
+              )}
+              <DetailField>
+                <DetailLabel>Status</DetailLabel>
+                <DetailValue>
+                  <Badge color={STATUS_COLOR_MAP[d.status] ?? 'default'}>
+                    {STATUS_LABEL_MAP[d.status] ?? d.status}
+                  </Badge>
+                </DetailValue>
+              </DetailField>
+              <DetailField>
+                <DetailLabel>Pagamento</DetailLabel>
+                <DetailValue>
+                  <Badge color={PAYMENT_STATUS_COLOR[d.payment_status] ?? 'default'}>
+                    {PAYMENT_STATUS_LABELS[d.payment_status] ?? d.payment_status}
+                  </Badge>
+                </DetailValue>
+              </DetailField>
+              {d.payment_value != null && (
+                <DetailField>
+                  <DetailLabel>Valor Pago</DetailLabel>
+                  <DetailValue style={{ color: '#15803d' }}>
+                    R$ {Number(d.payment_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </DetailValue>
+                </DetailField>
+              )}
+              {d.payment_date && (
+                <DetailField>
+                  <DetailLabel>Data Pagamento</DetailLabel>
+                  <DetailValue>{new Date(d.payment_date).toLocaleDateString('pt-BR')}</DetailValue>
+                </DetailField>
+              )}
+            </DetailRow>
+
+            {/* Grade por tamanho */}
+            {hasSizes && (
+              <GradeCompare>
+                <thead>
+                  <tr>
+                    <th></th>
+                    {sizes.map(s => <th key={s}>{s}</th>)}
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Enviado</td>
+                    {sentVals.map((v, i) => <td key={i}>{v ?? 0}</td>)}
+                    <td style={{ fontWeight: 600 }}>{d.total_sent ?? 0}</td>
+                  </tr>
+                  {(d.total_returned ?? 0) > 0 && (
+                    <tr>
+                      <td>Retornado</td>
+                      {returnedVals.map((v, i) => <td key={i}>{v ?? 0}</td>)}
+                      <td style={{ fontWeight: 600 }}>{d.total_returned ?? 0}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </GradeCompare>
+            )}
+
+            {/* Observações */}
+            {d.notes && (
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', padding: '8px 12px', background: 'var(--colors-gray50)', borderRadius: 8 }}>
+                <strong style={{ color: '#374151' }}>Obs:</strong> {d.notes}
+              </div>
+            )}
+
+            <ModalFooter>
+              <Button variant="ghost" onClick={() => setDetailDispatch(null)}>Fechar</Button>
+              {canManage && (d.status === 'enviado' || d.status === 'em_producao') && (
+                <Button variant="secondary" size="sm" onClick={() => { setDetailDispatch(null); openReturn(d) }}>
+                  <RotateCcw size={14} /> Registrar Retorno
+                </Button>
+              )}
+              {canManage && d.status === 'retornado' && d.payment_status === 'pendente' && (
+                <Button variant="success" size="sm" onClick={() => { setDetailDispatch(null); openPayment(d) }}>
+                  <DollarSign size={14} /> Registrar Pagamento
+                </Button>
+              )}
+            </ModalFooter>
+          </Modal>
+        )
+      })()}
 
       {/* Modal — Nova Remessa */}
       <Modal
