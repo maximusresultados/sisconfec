@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { Button } from '@/components/common/Button'
-import { Card, CardBody } from '@/components/common/Card'
+import { Card, CardHeader, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Modal, ModalFooter } from '@/components/common/Modal'
 import { Input } from '@/components/common/Input'
@@ -34,7 +34,7 @@ const SearchWrapper = styled('div', {
   '& svg': { position: 'absolute', left: '$3', top: '50%', transform: 'translateY(-50%)', color: '$textDisabled', width: '16px', height: '16px', pointerEvents: 'none' },
 })
 const SearchInput = styled('input', {
-  width: '100%', pl: '$8', pr: '$3', py: '$2', fontSize: '$sm',
+  width: '100%', paddingLeft: '$8', paddingRight: '$3', py: '$2', fontSize: '$sm',
   border: '1px solid $border', borderRadius: '$md', outline: 'none',
   backgroundColor: '$surface', color: '$textPrimary',
   '&:focus': { borderColor: '$primary500', boxShadow: '0 0 0 3px $colors$primary100' },
@@ -240,7 +240,7 @@ export default function Users() {
       </PageHeader>
 
       <Card padding="none">
-        <div style={{ padding: '16px 16px 0' }}>
+        <CardHeader css={{ px: '$4', pt: '$4', pb: '0', borderBottom: 'none' }}>
           <Toolbar>
             <SearchWrapper>
               <Search />
@@ -251,7 +251,7 @@ export default function Users() {
               />
             </SearchWrapper>
           </Toolbar>
-        </div>
+        </CardHeader>
 
         <CardBody css={{ px: 0, pb: 0 }}>
           {loading ? (
