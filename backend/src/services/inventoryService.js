@@ -57,7 +57,11 @@ export async function registerEntry({ tenantId, fabricId, quantity, unitCost, re
     .single()
 
   if (fetchErr || !fabric) {
-    throw new Error('Tecido não encontrado.')
+    throw new Error(
+      fetchErr
+        ? `Erro ao buscar tecido no banco de dados: ${fetchErr.message}`
+        : `Tecido com ID "${fabricId}" não encontrado ou não pertence a este tenant.`
+    )
   }
 
   const stockBefore   = Number(fabric.current_stock)
@@ -80,7 +84,9 @@ export async function registerEntry({ tenantId, fabricId, quantity, unitCost, re
     .eq('id', fabricId)
     .eq('tenant_id', tenantId)
 
-  if (updateErr) throw updateErr
+  if (updateErr) {
+    throw new Error(`Erro ao atualizar estoque do tecido "${fabric.code}": ${updateErr.message}`)
+  }
 
   // 4. Registra a transação (Kardex)
   const { data: transaction, error: txErr } = await supabaseAdmin
@@ -109,7 +115,7 @@ export async function registerEntry({ tenantId, fabricId, quantity, unitCost, re
       .from('fabrics')
       .update({ current_stock: stockBefore, average_cost: avgCostBefore })
       .eq('id', fabricId)
-    throw txErr
+    throw new Error(`Entrada registrada mas falha ao salvar no Kardex (estoque revertido): ${txErr.message}`)
   }
 
   return {
@@ -147,7 +153,11 @@ export async function registerExit({ tenantId, fabricId, quantity, cuttingOrderI
     .single()
 
   if (fetchErr || !fabric) {
-    throw new Error('Tecido não encontrado.')
+    throw new Error(
+      fetchErr
+        ? `Erro ao buscar tecido no banco de dados: ${fetchErr.message}`
+        : `Tecido com ID "${fabricId}" não encontrado ou não pertence a este tenant.`
+    )
   }
 
   const stockBefore   = Number(fabric.current_stock)
@@ -156,12 +166,13 @@ export async function registerExit({ tenantId, fabricId, quantity, cuttingOrderI
 
   if (qty > stockBefore) {
     throw new Error(
-      `Saldo insuficiente. Disponível: ${stockBefore.toFixed(3)} — Solicitado: ${qty.toFixed(3)}`
+      `Saldo insuficiente para o tecido "${fabric.code} — ${fabric.description}". ` +
+      `Disponível: ${stockBefore.toFixed(3)} ${fabric.unit ?? ''} | Solicitado: ${qty.toFixed(3)} ${fabric.unit ?? ''}.`
     )
   }
 
   const newStock  = stockBefore - qty
-  const totalCost = qty * avgCostBefore  // Custo da saída pelo preço médio atual
+  const totalCost = qty * avgCostBefore
 
   const { error: updateErr } = await supabaseAdmin
     .from('fabrics')
@@ -169,7 +180,9 @@ export async function registerExit({ tenantId, fabricId, quantity, cuttingOrderI
     .eq('id', fabricId)
     .eq('tenant_id', tenantId)
 
-  if (updateErr) throw updateErr
+  if (updateErr) {
+    throw new Error(`Erro ao debitar estoque do tecido "${fabric.code}": ${updateErr.message}`)
+  }
 
   const { data: transaction, error: txErr } = await supabaseAdmin
     .from('inventory_transactions')
@@ -178,12 +191,12 @@ export async function registerExit({ tenantId, fabricId, quantity, cuttingOrderI
       fabric_id:           fabricId,
       type:                'saida',
       quantity:            qty,
-      unit_cost:           avgCostBefore,   // na saída, registra o pm atual como referência
+      unit_cost:           avgCostBefore,
       total_cost:          totalCost,
       stock_before:        stockBefore,
       stock_after:         newStock,
       average_cost_before: avgCostBefore,
-      average_cost_after:  avgCostBefore,   // PM não muda em saída
+      average_cost_after:  avgCostBefore,
       cutting_order_id:    cuttingOrderId ?? null,
       notes:               notes ?? null,
       created_by:          userId,
@@ -196,7 +209,7 @@ export async function registerExit({ tenantId, fabricId, quantity, cuttingOrderI
       .from('fabrics')
       .update({ current_stock: stockBefore })
       .eq('id', fabricId)
-    throw txErr
+    throw new Error(`Saída registrada mas falha ao salvar no Kardex (estoque revertido): ${txErr.message}`)
   }
 
   return {

@@ -50,8 +50,7 @@ const Table = styled('table', {
 
 const MonoCell = styled('td', {
   fontVariantNumeric: 'tabular-nums',
-  fontFamily: '$mono',
-  fontSize: '$xs',
+  fontSize: '$sm',
 })
 
 const EmptyState = styled('div', {

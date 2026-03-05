@@ -129,8 +129,7 @@ const EmptyState = styled('div', {
 
 const MonoCell = styled('td', {
   fontVariantNumeric: 'tabular-nums',
-  fontFamily: '$mono',
-  fontSize: '$xs',
+  fontSize: '$sm',
 })
 
 const FormGrid = styled('div', {

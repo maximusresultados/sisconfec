@@ -47,15 +47,23 @@ app.use('/api/users',    usersRoutes)
 // ------- TRATAMENTO GLOBAL DE ERROS -------
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
-  console.error('[ERROR]', err.message, err.stack)
+  // Normaliza o erro — pode ser um Error, um objeto Supabase ou uma string
+  const message = (err instanceof Error ? err.message : null)
+    ?? err?.message
+    ?? (typeof err === 'string' ? err : null)
+    ?? 'Erro interno inesperado.'
 
-  // Erros de negócio (mensagens amigáveis)
-  const isBusinessError = err.message && !err.stack?.includes('supabase')
-  const status = isBusinessError ? 400 : 500
+  const isDev = process.env.NODE_ENV !== 'production'
+  console.error('[ERROR]', message, err?.stack ?? '')
+
+  // Erros de negócio conhecidos (lançados explicitamente com new Error())
+  // têm stack trace; erros do Supabase são objetos sem stack.
+  const isKnownError = err instanceof Error
+  const status = isKnownError ? 400 : 500
 
   res.status(status).json({
-    message: isBusinessError ? err.message : 'Erro interno. Tente novamente.',
-    ...(process.env.NODE_ENV === 'development' ? { detail: err.message } : {}),
+    message,
+    ...(isDev && err?.stack ? { stack: err.stack.split('\n').slice(0, 4) } : {}),
   })
 })
 

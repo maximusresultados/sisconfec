@@ -57,7 +57,7 @@ const Table = styled('table', {
   'tbody tr:hover td': { backgroundColor: '$gray50' },
 })
 
-const MonoCell = styled('td', { fontVariantNumeric: 'tabular-nums', fontFamily: '$mono', fontSize: '$xs' })
+const MonoCell = styled('td', { fontVariantNumeric: 'tabular-nums', fontSize: '$sm' })
 
 const EmptyState = styled('div', {
   textAlign: 'center', py: '$12', color: '$textSecondary',

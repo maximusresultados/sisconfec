@@ -8,6 +8,30 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
+/**
+ * Faz o parse seguro da resposta do backend.
+ * Evita "Unexpected end of JSON input" quando o servidor retorna
+ * corpo vazio, HTML (página de erro do Vercel/Nginx) ou status inesperado.
+ */
+async function parseApiResponse(res) {
+  const text = await res.text().catch(() => '')
+  if (!text.trim()) {
+    throw new Error(
+      `Erro ${res.status} – o servidor não retornou nenhuma resposta. ` +
+      `Verifique se o backend está rodando e a variável VITE_API_URL está configurada.`
+    )
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    // Servidor retornou HTML (página de erro do proxy/Vercel) ou texto puro
+    throw new Error(
+      `Erro ${res.status} – resposta inválida do servidor. ` +
+      `Detalhe: ${text.slice(0, 120).replace(/<[^>]+>/g, '').trim()}`
+    )
+  }
+}
+
 export function useInventory() {
   const { profile } = useAuth()
   const tenantId    = profile?.tenant_id
@@ -104,7 +128,10 @@ export function useInventory() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/inventory/entrada`, {
+      const apiUrl = import.meta.env.VITE_API_URL
+      if (!apiUrl) throw new Error('VITE_API_URL não está configurada. Verifique o arquivo .env do frontend.')
+
+      const response = await fetch(`${apiUrl}/api/inventory/entrada`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,12 +140,9 @@ export function useInventory() {
         body: JSON.stringify({ fabricId, quantity, unitCost, referenceDoc, notes }),
       })
 
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.message || 'Erro ao registrar entrada')
-      }
-
-      return response.json()
+      const data = await parseApiResponse(response)
+      if (!response.ok) throw new Error(data.message || `Erro ${response.status} ao registrar entrada.`)
+      return data
     } catch (err) {
       setError(err.message)
       throw err
@@ -135,7 +159,10 @@ export function useInventory() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/inventory/saida`, {
+      const apiUrl = import.meta.env.VITE_API_URL
+      if (!apiUrl) throw new Error('VITE_API_URL não está configurada. Verifique o arquivo .env do frontend.')
+
+      const response = await fetch(`${apiUrl}/api/inventory/saida`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,12 +171,9 @@ export function useInventory() {
         body: JSON.stringify({ fabricId, quantity, cuttingOrderId, notes }),
       })
 
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.message || 'Erro ao registrar saída')
-      }
-
-      return response.json()
+      const data = await parseApiResponse(response)
+      if (!response.ok) throw new Error(data.message || `Erro ${response.status} ao registrar saída.`)
+      return data
     } catch (err) {
       setError(err.message)
       throw err
