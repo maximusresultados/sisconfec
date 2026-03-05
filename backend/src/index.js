@@ -15,6 +15,7 @@ import express from 'express'
 import cors    from 'cors'
 
 import inventoryRoutes from './routes/inventory.js'
+import usersRoutes     from './routes/users.js'
 
 const app  = express()
 const PORT = process.env.PORT ?? 3001
@@ -41,6 +42,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/inventory', inventoryRoutes)
+app.use('/api/users',    usersRoutes)
 
 // ------- TRATAMENTO GLOBAL DE ERROS -------
 // eslint-disable-next-line no-unused-vars

@@ -167,6 +167,28 @@ export const {
   },
 })
 
+// ------- TEMA ESCURO -------
+export const darkTheme = createTheme('sc-dark', {
+  colors: {
+    background:    '#0f172a',
+    surface:       '#1e293b',
+    border:        '#334155',
+    textPrimary:   '#f1f5f9',
+    textSecondary: '#94a3b8',
+    textDisabled:  '#64748b',
+    gray50:  '#1e293b',
+    gray100: '#334155',
+    gray200: '#475569',
+    gray300: '#64748b',
+    gray400: '#94a3b8',
+    gray500: '#94a3b8',
+    gray600: '#cbd5e1',
+    gray700: '#e2e8f0',
+    gray800: '#f1f5f9',
+    gray900: '#0f172a',
+  },
+})
+
 // ------- RESET GLOBAL -------
 export const globalStyles = globalCss({
   '*, *::before, *::after': {
@@ -191,5 +213,24 @@ export const globalStyles = globalCss({
   a: {
     color: 'inherit',
     textDecoration: 'none',
+  },
+
+  // ------- CSS DE IMPRESSÃO -------
+  '@media print': {
+    'aside, nav, header, .no-print, [data-no-print]': {
+      display: 'none !important',
+    },
+    body: {
+      backgroundColor: '#fff !important',
+      color: '#000 !important',
+      fontSize: '11pt',
+    },
+    table: {
+      pageBreakInside: 'auto',
+      borderCollapse: 'collapse',
+    },
+    tr: { pageBreakInside: 'avoid' },
+    th: { backgroundColor: '#f3f4f6 !important', color: '#000 !important' },
+    '@page': { margin: '1.5cm' },
   },
 })

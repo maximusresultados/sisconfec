@@ -15,11 +15,12 @@ export const Badge = styled('span', {
 
   variants: {
     color: {
-      default: { backgroundColor: '$gray100', color: '$gray700' },
+      default: { backgroundColor: '$gray100',    color: '$gray700'    },
       primary: { backgroundColor: '$primary100', color: '$primary700' },
+      info:    { backgroundColor: '$primary100', color: '$primary700' },
       success: { backgroundColor: '$success50',  color: '$success700' },
       warning: { backgroundColor: '$warning50',  color: '$warning700' },
-      danger:  { backgroundColor: '$danger50',   color: '$danger700' },
+      danger:  { backgroundColor: '$danger50',   color: '$danger700'  },
     },
   },
 

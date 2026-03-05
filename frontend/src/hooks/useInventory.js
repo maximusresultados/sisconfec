@@ -158,16 +158,21 @@ export function useInventory() {
     }
   }, [])
 
-  /** Busca o Kardex de um tecido específico */
-  const fetchKardex = useCallback(async (fabricId, { limit = 50, offset = 0 } = {}) => {
-    const { data, error } = await supabase
+  /** Busca o Kardex de um tecido específico, com filtros opcionais de data */
+  const fetchKardex = useCallback(async (fabricId, { limit = 50, offset = 0, dateFrom, dateTo } = {}) => {
+    let query = supabase
       .from('vw_kardex')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('fabric_id', fabricId)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
 
+    if (dateFrom) query = query.gte('created_at', dateFrom)
+    if (dateTo)   query = query.lte('created_at', dateTo + 'T23:59:59')
+
+    query = query.range(offset, offset + limit - 1)
+
+    const { data, error } = await query
     if (error) throw error
     return data
   }, [tenantId])

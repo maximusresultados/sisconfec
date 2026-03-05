@@ -1,24 +1,32 @@
 /**
- * Dashboard — Painel em tempo real
- *
- * Exibe KPIs principais do mês, alertas de estoque mínimo,
- * gráfico de movimentações e remessas abertas.
+ * Dashboard — Painel em tempo real com período configurável e Realtime
  */
-import { useEffect, useState } from 'react'
-import { Package, Scissors, Shirt, AlertTriangle } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { Package, Scissors, Shirt, AlertTriangle, RefreshCw } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/common/Card'
 import { Badge, STATUS_COLOR_MAP, STATUS_LABEL_MAP } from '@/components/common/Badge'
+import { Button } from '@/components/common/Button'
+import { SkeletonKpi, SkeletonTable } from '@/components/common/Skeleton'
 
 // ------- ESTILOS -------
+const PageHeader = styled('div', {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  mb: '$6',
+  flexWrap: 'wrap',
+  gap: '$3',
+})
+
 const PageTitle = styled('h2', {
   fontSize: '$2xl',
   fontWeight: '$bold',
   color: '$textPrimary',
-  mb: '$6',
 })
 
 const KpiGrid = styled('div', {
@@ -42,7 +50,6 @@ const KpiIcon = styled('div', {
   alignItems: 'center',
   justifyContent: 'center',
   flexShrink: 0,
-
   variants: {
     color: {
       blue:   { backgroundColor: '$primary100', color: '$primary600' },
@@ -53,34 +60,17 @@ const KpiIcon = styled('div', {
   },
 })
 
-const KpiValue = styled('div', {
-  fontSize: '$3xl',
-  fontWeight: '$bold',
-  color: '$textPrimary',
-  lineHeight: '$tight',
-})
-
-const KpiLabel = styled('div', {
-  fontSize: '$sm',
-  color: '$textSecondary',
-})
+const KpiValue = styled('div', { fontSize: '$3xl', fontWeight: '$bold', color: '$textPrimary', lineHeight: '$tight' })
+const KpiLabel = styled('div', { fontSize: '$sm', color: '$textSecondary' })
 
 const DashGrid = styled('div', {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: '$4',
-
-  '@media (max-width: 1024px)': {
-    gridTemplateColumns: '1fr',
-  },
+  '@media (max-width: 1024px)': { gridTemplateColumns: '1fr' },
 })
 
-const AlertList = styled('ul', {
-  listStyle: 'none',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '$2',
-})
+const AlertList = styled('ul', { listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '$2' })
 
 const AlertItem = styled('li', {
   display: 'flex',
@@ -92,7 +82,6 @@ const AlertItem = styled('li', {
   backgroundColor: '$danger50',
   border: '1px solid $danger500',
   fontSize: '$sm',
-
   '& .label': { color: '$danger700', fontWeight: '$medium' },
   '& .stock': { color: '$danger500', fontWeight: '$bold' },
 })
@@ -101,58 +90,77 @@ const OrderTable = styled('table', {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '$sm',
-
-  'th': {
-    textAlign: 'left',
-    py: '$2',
-    px: '$3',
-    color: '$textSecondary',
-    fontWeight: '$medium',
-    borderBottom: '1px solid $border',
-    fontSize: '$xs',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+  th: {
+    textAlign: 'left', py: '$2', px: '$3', color: '$textSecondary', fontWeight: '$medium',
+    borderBottom: '1px solid $border', fontSize: '$xs', textTransform: 'uppercase', letterSpacing: '0.04em',
   },
-
-  'td': {
-    py: '$3',
-    px: '$3',
-    borderBottom: '1px solid $border',
-    color: '$textPrimary',
-  },
-
+  td: { py: '$3', px: '$3', borderBottom: '1px solid $border', color: '$textPrimary' },
   'tr:last-child td': { borderBottom: 'none' },
   'tr:hover td':      { backgroundColor: '$gray50' },
 })
 
-const EmptyState = styled('div', {
-  textAlign: 'center',
-  py: '$8',
-  color: '$textSecondary',
+const EmptyState = styled('div', { textAlign: 'center', py: '$8', color: '$textSecondary', fontSize: '$sm' })
+
+const PeriodSelect = styled('select', {
+  px: '$3',
+  py: '$2',
   fontSize: '$sm',
+  border: '1px solid $border',
+  borderRadius: '$md',
+  backgroundColor: '$surface',
+  color: '$textPrimary',
+  cursor: 'pointer',
+  outline: 'none',
+  '&:focus': { borderColor: '$primary500' },
 })
+
+const RealtimeDot = styled('span', {
+  display: 'inline-block',
+  size: '8px',
+  borderRadius: '$full',
+  backgroundColor: '$success500',
+  marginRight: '$2',
+  variants: {
+    pulse: { true: { animation: 'pulse 2s infinite' } },
+  },
+})
+
+// ------- PERÍODOS -------
+const PERIODS = [
+  { value: '7',   label: 'Últimos 7 dias'   },
+  { value: '14',  label: 'Últimos 14 dias'  },
+  { value: '30',  label: 'Últimos 30 dias'  },
+  { value: '90',  label: 'Últimos 3 meses'  },
+]
+
+function getPeriodStart(days) {
+  return new Date(Date.now() - Number(days) * 86_400_000).toISOString()
+}
+
+function getMonthStart() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+}
 
 // ------- COMPONENTE -------
 export default function Dashboard() {
-  const { profile } = useAuth()
-  const [kpis,       setKpis]       = useState({ totalPiecesMonth: 0, openOrders: 0, openDispatches: 0, lowStockCount: 0 })
-  const [lowStock,   setLowStock]   = useState([])
-  const [orders,     setOrders]     = useState([])
-  const [chartData,  setChartData]  = useState([])
-  const [loading,    setLoading]    = useState(true)
+  const { profile }  = useAuth()
+  const toast        = useToast()
+  const [period, setPeriod]     = useState('7')
+  const [kpis,   setKpis]       = useState({ totalPiecesMonth: 0, openOrders: 0, openDispatches: 0, lowStockCount: 0 })
+  const [lowStock,  setLowStock]  = useState([])
+  const [orders,    setOrders]    = useState([])
+  const [chartData, setChartData] = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [realtime,  setRealtime]  = useState(false)
+  const channelRef = useRef(null)
 
-  useEffect(() => {
-    if (!profile?.tenant_id) return
-    fetchDashboardData(profile.tenant_id)
-  }, [profile])
-
-  async function fetchDashboardData(tenantId) {
+  const fetchData = useCallback(async (tenantId, chartDays) => {
     setLoading(true)
     try {
-      const now   = new Date()
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      const monthStart  = getMonthStart()
+      const periodStart = getPeriodStart(chartDays)
 
-      // KPIs em paralelo
       const [
         { data: piecesData },
         { count: openOrders },
@@ -161,65 +169,48 @@ export default function Dashboard() {
         { data: ordersData },
         { data: chartRaw },
       ] = await Promise.all([
-        // Total de peças do mês (execuções de corte aprovadas)
-        supabase
-          .from('cutting_executions')
+        supabase.from('cutting_executions')
           .select('actual_total')
           .eq('tenant_id', tenantId)
           .eq('review_status', 'aprovado')
-          .gte('created_at', start),
+          .gte('created_at', monthStart),
 
-        // Ordens abertas
-        supabase
-          .from('cutting_orders')
+        supabase.from('cutting_orders')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
           .in('status', ['pendente', 'em_corte', 'em_revisao']),
 
-        // Remessas em aberto
-        supabase
-          .from('faction_dispatches')
+        supabase.from('faction_dispatches')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
           .in('status', ['enviado', 'em_producao']),
 
-        // Alertas de estoque mínimo
-        supabase
-          .from('vw_low_stock_alerts')
+        supabase.from('vw_low_stock_alerts')
           .select('id, code, description, current_stock, minimum_stock, unit')
           .eq('tenant_id', tenantId)
           .limit(5),
 
-        // Últimas ordens de corte
-        supabase
-          .from('cutting_orders')
+        supabase.from('cutting_orders')
           .select('id, order_number, description, status, total_pieces, created_at')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(8),
 
-        // Movimentações dos últimos 7 dias para o gráfico
-        supabase
-          .from('inventory_transactions')
+        supabase.from('inventory_transactions')
           .select('type, quantity, created_at')
           .eq('tenant_id', tenantId)
-          .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+          .gte('created_at', periodStart),
       ])
 
-      // Processa KPIs
-      const totalPiecesMonth = piecesData?.reduce((acc, r) => acc + (r.actual_total || 0), 0) ?? 0
-
       setKpis({
-        totalPiecesMonth,
-        openOrders:    openOrders ?? 0,
-        openDispatches: openDispatches ?? 0,
-        lowStockCount: lowStockData?.length ?? 0,
+        totalPiecesMonth: piecesData?.reduce((a, r) => a + (r.actual_total || 0), 0) ?? 0,
+        openOrders:       openOrders ?? 0,
+        openDispatches:   openDispatches ?? 0,
+        lowStockCount:    lowStockData?.length ?? 0,
       })
-
       setLowStock(lowStockData ?? [])
       setOrders(ordersData ?? [])
 
-      // Processa dados do gráfico (agrupa por dia)
       const grouped = {}
       chartRaw?.forEach(tx => {
         const day = tx.created_at.slice(0, 10)
@@ -228,63 +219,120 @@ export default function Dashboard() {
         else                       grouped[day].saidas   += tx.quantity
       })
       setChartData(Object.values(grouped).sort((a, b) => a.dia.localeCompare(b.dia)))
-
     } catch (err) {
       console.error('Erro ao carregar dashboard:', err)
+      toast?.error('Erro ao carregar dados do painel.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  // Subscrição realtime para inventory_transactions
+  const startRealtime = useCallback((tenantId, chartDays) => {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+    }
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'inventory_transactions',
+        filter: `tenant_id=eq.${tenantId}`,
+      }, () => fetchData(tenantId, chartDays))
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'cutting_orders',
+        filter: `tenant_id=eq.${tenantId}`,
+      }, () => fetchData(tenantId, chartDays))
+      .subscribe((status) => {
+        setRealtime(status === 'SUBSCRIBED')
+      })
+    channelRef.current = channel
+  }, [fetchData])
+
+  useEffect(() => {
+    if (!profile?.tenant_id) return
+    fetchData(profile.tenant_id, period)
+    startRealtime(profile.tenant_id, period)
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  }, [profile, period, fetchData, startRealtime])
 
   const formatDate = iso => new Date(iso).toLocaleDateString('pt-BR')
 
   return (
     <div>
-      <PageTitle>Dashboard</PageTitle>
+      <PageHeader>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <PageTitle>Dashboard</PageTitle>
+          <span style={{ fontSize: '0.75rem', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+            <RealtimeDot pulse={realtime} />
+            {realtime ? 'Tempo real ativo' : 'Conectando...'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <PeriodSelect value={period} onChange={e => setPeriod(e.target.value)}>
+            {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </PeriodSelect>
+          <Button variant="secondary" size="sm" onClick={() => fetchData(profile?.tenant_id, period)} disabled={loading}>
+            <RefreshCw size={14} /> Atualizar
+          </Button>
+        </div>
+      </PageHeader>
 
       {/* KPIs */}
-      <KpiGrid>
-        <KpiCard hoverable>
-          <KpiIcon color="blue"><Scissors size={22} /></KpiIcon>
-          <div>
-            <KpiValue>{loading ? '—' : kpis.totalPiecesMonth.toLocaleString('pt-BR')}</KpiValue>
-            <KpiLabel>Peças produzidas no mês</KpiLabel>
-          </div>
-        </KpiCard>
-
-        <KpiCard hoverable>
-          <KpiIcon color="orange"><Package size={22} /></KpiIcon>
-          <div>
-            <KpiValue>{loading ? '—' : kpis.openOrders}</KpiValue>
-            <KpiLabel>Ordens de corte abertas</KpiLabel>
-          </div>
-        </KpiCard>
-
-        <KpiCard hoverable>
-          <KpiIcon color="green"><Shirt size={22} /></KpiIcon>
-          <div>
-            <KpiValue>{loading ? '—' : kpis.openDispatches}</KpiValue>
-            <KpiLabel>Remessas em produção</KpiLabel>
-          </div>
-        </KpiCard>
-
-        <KpiCard hoverable>
-          <KpiIcon color="red"><AlertTriangle size={22} /></KpiIcon>
-          <div>
-            <KpiValue>{loading ? '—' : kpis.lowStockCount}</KpiValue>
-            <KpiLabel>Tecidos com estoque baixo</KpiLabel>
-          </div>
-        </KpiCard>
-      </KpiGrid>
+      {loading ? (
+        <div style={{ marginBottom: 24 }}><SkeletonKpi count={4} /></div>
+      ) : (
+        <KpiGrid>
+          <KpiCard hoverable>
+            <KpiIcon color="blue"><Scissors size={22} /></KpiIcon>
+            <div>
+              <KpiValue>{kpis.totalPiecesMonth.toLocaleString('pt-BR')}</KpiValue>
+              <KpiLabel>Peças produzidas no mês</KpiLabel>
+            </div>
+          </KpiCard>
+          <KpiCard hoverable>
+            <KpiIcon color="orange"><Package size={22} /></KpiIcon>
+            <div>
+              <KpiValue>{kpis.openOrders}</KpiValue>
+              <KpiLabel>Ordens de corte abertas</KpiLabel>
+            </div>
+          </KpiCard>
+          <KpiCard hoverable>
+            <KpiIcon color="green"><Shirt size={22} /></KpiIcon>
+            <div>
+              <KpiValue>{kpis.openDispatches}</KpiValue>
+              <KpiLabel>Remessas em produção</KpiLabel>
+            </div>
+          </KpiCard>
+          <KpiCard hoverable>
+            <KpiIcon color="red"><AlertTriangle size={22} /></KpiIcon>
+            <div>
+              <KpiValue>{kpis.lowStockCount}</KpiValue>
+              <KpiLabel>Tecidos com estoque baixo</KpiLabel>
+            </div>
+          </KpiCard>
+        </KpiGrid>
+      )}
 
       <DashGrid>
-        {/* Gráfico de movimentações */}
+        {/* Gráfico */}
         <Card>
           <CardHeader>
-            <CardTitle>Movimentações — últimos 7 dias</CardTitle>
+            <CardTitle>
+              Movimentações — {PERIODS.find(p => p.value === period)?.label}
+            </CardTitle>
           </CardHeader>
           <CardBody>
-            {chartData.length === 0 ? (
+            {loading ? (
+              <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                Carregando gráfico...
+              </div>
+            ) : chartData.length === 0 ? (
               <EmptyState>Sem movimentações no período.</EmptyState>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -301,7 +349,7 @@ export default function Dashboard() {
           </CardBody>
         </Card>
 
-        {/* Alertas de estoque mínimo */}
+        {/* Alertas de estoque */}
         <Card>
           <CardHeader>
             <CardTitle>
@@ -310,15 +358,15 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardBody>
-            {lowStock.length === 0 ? (
+            {loading ? (
+              <EmptyState>Carregando alertas...</EmptyState>
+            ) : lowStock.length === 0 ? (
               <EmptyState>Nenhum alerta de estoque.</EmptyState>
             ) : (
               <AlertList>
                 {lowStock.map(f => (
                   <AlertItem key={f.id}>
-                    <div>
-                      <span className="label">[{f.code}] {f.description}</span>
-                    </div>
+                    <span className="label">[{f.code}] {f.description}</span>
                     <span className="stock">
                       {Number(f.current_stock).toFixed(1)} / {Number(f.minimum_stock).toFixed(1)} {f.unit}
                     </span>
@@ -330,13 +378,15 @@ export default function Dashboard() {
         </Card>
       </DashGrid>
 
-      {/* Últimas ordens de corte */}
+      {/* Últimas ordens */}
       <Card css={{ mt: '$4' }}>
         <CardHeader>
           <CardTitle>Últimas Ordens de Corte</CardTitle>
         </CardHeader>
-        <CardBody>
-          {orders.length === 0 ? (
+        <CardBody css={{ px: 0, pb: 0 }}>
+          {loading ? (
+            <SkeletonTable rows={5} cols={5} />
+          ) : orders.length === 0 ? (
             <EmptyState>Nenhuma ordem cadastrada.</EmptyState>
           ) : (
             <OrderTable>

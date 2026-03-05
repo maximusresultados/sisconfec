@@ -1,15 +1,15 @@
 /**
- * Sidebar — Menu lateral de navegação
- *
- * Exibe apenas os itens de menu que o role do usuário pode acessar.
+ * Sidebar — Menu lateral com RBAC, dark mode toggle e novos itens
  */
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Scissors, Shirt,
   Users, BarChart2, ChevronRight, LogOut, ClipboardList,
+  ShoppingCart, CreditCard, Moon, Sun, UserCog,
 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 
 // ------- ESTILOS -------
 const SidebarWrapper = styled('aside', {
@@ -26,7 +26,6 @@ const Logo = styled('div', {
   px: '$6',
   py: '$5',
   borderBottom: '1px solid $gray700',
-
   '& h1': {
     fontSize: '$xl',
     fontWeight: '$bold',
@@ -72,15 +71,8 @@ const NavItem = styled(NavLink, {
 
   '& svg': { width: '18px', height: '18px', flexShrink: 0 },
 
-  '&:hover': {
-    backgroundColor: '$gray800',
-    color: '$textInverse',
-  },
-
-  '&.active': {
-    backgroundColor: '$primary600',
-    color: '$textInverse',
-  },
+  '&:hover': { backgroundColor: '$gray800', color: '$textInverse' },
+  '&.active': { backgroundColor: '$primary600', color: '$textInverse' },
 })
 
 const UserArea = styled('div', {
@@ -104,15 +96,17 @@ const Avatar = styled('div', {
   flexShrink: 0,
 })
 
-const LogoutBtn = styled('button', {
-  marginLeft: 'auto',
+const IconBtn = styled('button', {
   background: 'none',
   border: 'none',
   color: '$gray400',
   cursor: 'pointer',
   padding: '$1',
   borderRadius: '$md',
-  '&:hover': { color: '$danger500', backgroundColor: '$gray800' },
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  '&:hover': { color: '$gray100', backgroundColor: '$gray800' },
   '& svg': { width: '16px', height: '16px' },
 })
 
@@ -127,8 +121,9 @@ const NAV_ITEMS = [
   {
     section: 'Estoque',
     items: [
-      { to: '/estoque/tecidos', label: 'Tecidos', icon: Package, roles: ['admin','estoquista'] },
-      { to: '/estoque/movimentacoes', label: 'Movimentações', icon: BarChart2, roles: ['admin','estoquista'] },
+      { to: '/estoque/tecidos',       label: 'Tecidos',         icon: Package,      roles: ['admin','estoquista'] },
+      { to: '/estoque/movimentacoes', label: 'Movimentações',   icon: BarChart2,    roles: ['admin','estoquista'] },
+      { to: '/estoque/reposicao',     label: 'Reposição',       icon: ShoppingCart, roles: ['admin','estoquista'] },
     ],
   },
   {
@@ -141,8 +136,9 @@ const NAV_ITEMS = [
   {
     section: 'Facção',
     items: [
-      { to: '/faccao/remessas', label: 'Remessas', icon: Shirt, roles: ['admin','gestor_faccao'] },
-      { to: '/faccao/costureiras', label: 'Costureiras', icon: Users, roles: ['admin','gestor_faccao'] },
+      { to: '/faccao/remessas',    label: 'Remessas',          icon: Shirt,       roles: ['admin','gestor_faccao'] },
+      { to: '/faccao/costureiras', label: 'Costureiras',       icon: Users,       roles: ['admin','gestor_faccao'] },
+      { to: '/faccao/pagamentos',  label: 'Histórico Pagtos',  icon: CreditCard,  roles: ['admin','gestor_faccao'] },
     ],
   },
   {
@@ -151,11 +147,25 @@ const NAV_ITEMS = [
       { to: '/relatorios', label: 'Relatórios', icon: BarChart2, roles: ['admin'] },
     ],
   },
+  {
+    section: 'Administração',
+    items: [
+      { to: '/admin/usuarios', label: 'Usuários', icon: UserCog, roles: ['admin'] },
+    ],
+  },
 ]
+
+const ROLE_LABEL = {
+  admin:            'Administrador',
+  estoquista:       'Estoquista',
+  encarregado_corte:'Encarregado de Corte',
+  gestor_faccao:    'Gestor de Facção',
+}
 
 // ------- COMPONENTE -------
 export default function Sidebar() {
   const { profile, signOut } = useAuth()
+  const { isDark, toggle }   = useTheme()
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -163,13 +173,6 @@ export default function Sidebar() {
     .map(n => n[0])
     .join('')
     .toUpperCase() ?? '?'
-
-  const ROLE_LABEL = {
-    admin:            'Administrador',
-    estoquista:       'Estoquista',
-    encarregado_corte:'Encarregado de Corte',
-    gestor_faccao:    'Gestor de Facção',
-  }
 
   return (
     <SidebarWrapper>
@@ -206,17 +209,20 @@ export default function Sidebar() {
 
       <UserArea>
         <Avatar>{initials}</Avatar>
-        <div>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f9fafb' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile?.full_name ?? 'Carregando...'}
           </div>
           <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
             {ROLE_LABEL[profile?.role] ?? ''}
           </div>
         </div>
-        <LogoutBtn onClick={signOut} title="Sair">
+        <IconBtn onClick={toggle} title={isDark ? 'Modo claro' : 'Modo escuro'}>
+          {isDark ? <Sun /> : <Moon />}
+        </IconBtn>
+        <IconBtn onClick={signOut} title="Sair">
           <LogOut />
-        </LogoutBtn>
+        </IconBtn>
       </UserArea>
     </SidebarWrapper>
   )

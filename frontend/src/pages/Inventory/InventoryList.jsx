@@ -2,15 +2,19 @@
  * InventoryList — Lista de tecidos com modais de cadastro, entrada e saída
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil } from 'lucide-react'
+import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useInventory } from '@/hooks/useInventory'
+import { useToast } from '@/contexts/ToastContext'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Modal, ModalFooter } from '@/components/common/Modal'
 import { Input } from '@/components/common/Input'
 import { Select } from '@/components/common/Select'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { SkeletonTable } from '@/components/common/Skeleton'
+import { Pagination, usePagination } from '@/components/common/Pagination'
 
 // ------- ESTILOS -------
 const PageHeader = styled('div', {
@@ -166,7 +170,8 @@ const UNIT_OPTIONS = [
 
 // ------- COMPONENTE -------
 export default function InventoryList() {
-  const { fetchFabrics, createFabric, updateFabric, registerEntry, registerExit, loading } = useInventory()
+  const { fetchFabrics, createFabric, updateFabric, deactivateFabric, registerEntry, registerExit, loading } = useInventory()
+  const toast = useToast()
 
   const [fabrics,  setFabrics]  = useState([])
   const [search,   setSearch]   = useState('')
@@ -177,13 +182,14 @@ export default function InventoryList() {
   const [modalFabric, setModalFabric] = useState(false)
   const [modalEntry,  setModalEntry]  = useState(false)
   const [modalExit,   setModalExit]   = useState(false)
+  const [confirmDeactivate, setConfirmDeactivate] = useState(null)
 
   // Formulários
   const [fabricForm,  setFabricForm]  = useState(EMPTY_FABRIC)
   const [entryForm,   setEntryForm]   = useState(EMPTY_ENTRY)
   const [exitForm,    setExitForm]    = useState(EMPTY_EXIT)
-  const [editingId,   setEditingId]   = useState(null)   // id do tecido em edição
-  const [targetFabric, setTargetFabric] = useState(null) // tecido selecionado p/ entrada/saída
+  const [editingId,   setEditingId]   = useState(null)
+  const [targetFabric, setTargetFabric] = useState(null)
 
   useEffect(() => { loadFabrics() }, [])
 
@@ -248,8 +254,10 @@ export default function InventoryList() {
       }
       if (editingId) {
         await updateFabric(editingId, payload)
+        toast?.success('Tecido atualizado com sucesso.')
       } else {
         await createFabric(payload)
+        toast?.success('Tecido cadastrado com sucesso.')
       }
       setModalFabric(false)
       await loadFabrics()
@@ -279,6 +287,7 @@ export default function InventoryList() {
         referenceDoc: entryForm.referenceDoc || undefined,
         notes:        entryForm.notes || undefined,
       })
+      toast?.success(`Entrada de ${entryForm.quantity} ${targetFabric.unit} registrada.`)
       setModalEntry(false)
       await loadFabrics()
     } catch (err) {
@@ -301,6 +310,7 @@ export default function InventoryList() {
         quantity: Number(exitForm.quantity),
         notes:    exitForm.notes || undefined,
       })
+      toast?.success(`Saída de ${exitForm.quantity} ${targetFabric.unit} registrada.`)
       setModalExit(false)
       await loadFabrics()
     } catch (err) {
@@ -310,7 +320,17 @@ export default function InventoryList() {
     }
   }
 
-  // ------- FILTRO LOCAL -------
+  async function handleDeactivate(fabric) {
+    try {
+      await deactivateFabric(fabric.id)
+      toast?.success(`Tecido "${fabric.description}" desativado.`)
+      await loadFabrics()
+    } catch (err) {
+      toast?.error(err.message || 'Erro ao desativar tecido.')
+    }
+  }
+
+  // ------- FILTRO + PAGINAÇÃO -------
   const filtered = fabrics.filter(f => {
     const term = search.toLowerCase()
     return (
@@ -320,6 +340,8 @@ export default function InventoryList() {
       (f.supplier?.toLowerCase() ?? '').includes(term)
     )
   })
+
+  const pagination = usePagination(filtered, 25)
 
   function getStockStatus(fabric) {
     const avail = fabric.available_stock ?? fabric.current_stock
@@ -360,7 +382,7 @@ export default function InventoryList() {
 
         <CardBody css={{ px: 0, pb: 0 }}>
           {loading ? (
-            <EmptyState><p>Carregando tecidos...</p></EmptyState>
+            <SkeletonTable rows={7} cols={8} />
           ) : filtered.length === 0 ? (
             <EmptyState>
               <Package size={36} style={{ opacity: 0.3 }} />
@@ -384,7 +406,7 @@ export default function InventoryList() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(fabric => {
+                {pagination.paginated.map(fabric => {
                   const status = getStockStatus(fabric)
                   const avail  = fabric.available_stock ?? fabric.current_stock
                   const pct    = fabric.minimum_stock > 0
@@ -427,7 +449,7 @@ export default function InventoryList() {
                         </Badge>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <Button variant="ghost" size="xs" onClick={() => openEditFabric(fabric)}>
                             <Pencil size={12} /> Editar
                           </Button>
@@ -437,6 +459,9 @@ export default function InventoryList() {
                           <Button variant="ghost" size="xs" onClick={() => openExit(fabric)}>
                             <ArrowUpCircle size={12} /> Saída
                           </Button>
+                          <Button variant="ghost" size="xs" onClick={() => setConfirmDeactivate(fabric)}>
+                            <Trash2 size={12} /> Desativar
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -445,8 +470,27 @@ export default function InventoryList() {
               </tbody>
             </Table>
           )}
+          {!loading && filtered.length > 0 && (
+            <Pagination
+              page={pagination.page}
+              pageSize={25}
+              total={pagination.total}
+              onPageChange={pagination.setPage}
+            />
+          )}
         </CardBody>
       </Card>
+
+      {/* Confirmação de desativação */}
+      <ConfirmDialog
+        open={!!confirmDeactivate}
+        onClose={() => setConfirmDeactivate(null)}
+        onConfirm={() => handleDeactivate(confirmDeactivate)}
+        title="Desativar tecido"
+        message={`Desativar "${confirmDeactivate?.description}"? O tecido ficará oculto mas o histórico de movimentações será preservado.`}
+        confirmLabel="Desativar"
+        danger
+      />
 
       {/* ======== MODAL NOVO / EDITAR TECIDO ======== */}
       <Modal
