@@ -2,7 +2,7 @@
  * InventoryList — Lista de tecidos com modais de cadastro, entrada e saída
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2, ChevronRight } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useInventory } from '@/hooks/useInventory'
 import { useToast } from '@/contexts/ToastContext'
@@ -132,6 +132,60 @@ const MonoCell = styled('td', {
   fontSize: '$sm',
 })
 
+// Linha clicável da tabela (exclui coluna de ações via stopPropagation)
+const ClickableRow = styled('tr', {
+  cursor: 'pointer',
+  '& td': { transition: 'background-color $fast' },
+  '&:hover td': { backgroundColor: '$primary50 !important' },
+})
+
+// Modal de detalhes — seções e campos
+const DetailSection = styled('div', {
+  '& + &': { marginTop: '$5', paddingTop: '$5', borderTop: '1px solid $border' },
+})
+
+const DetailSectionTitle = styled('p', {
+  fontSize: '$xs',
+  fontWeight: '$semibold',
+  color: '$textSecondary',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  marginBottom: '$3',
+})
+
+const DetailGrid = styled('div', {
+  display: 'grid',
+  gap: '$3',
+  variants: {
+    cols: {
+      2: { gridTemplateColumns: '1fr 1fr' },
+      3: { gridTemplateColumns: '1fr 1fr 1fr' },
+    },
+  },
+  defaultVariants: { cols: 2 },
+})
+
+const DetailField = styled('div', {})
+const DetailLabel = styled('p', { fontSize: '$xs', color: '$textSecondary', marginBottom: '2px' })
+const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color: '$textPrimary' })
+
+const StockSummary = styled('div', {
+  display: 'flex',
+  gap: '$4',
+  padding: '$4',
+  borderRadius: '$lg',
+  backgroundColor: '$gray50',
+  marginBottom: '$4',
+  flexWrap: 'wrap',
+})
+
+const StockFigure = styled('div', {
+  flex: 1,
+  minWidth: '80px',
+  '& .val': { fontSize: '$xl', fontWeight: '$bold', color: '$textPrimary', lineHeight: '$tight' },
+  '& .lbl': { fontSize: '$xs', color: '$textSecondary', marginTop: '2px' },
+})
+
 const FormGrid = styled('div', {
   display: 'grid',
   gap: '$4',
@@ -182,6 +236,7 @@ export default function InventoryList() {
   const [modalEntry,  setModalEntry]  = useState(false)
   const [modalExit,   setModalExit]   = useState(false)
   const [confirmDeactivate, setConfirmDeactivate] = useState(null)
+  const [detailFabric, setDetailFabric] = useState(null) // modal de detalhes
 
   // Formulários
   const [fabricForm,  setFabricForm]  = useState(EMPTY_FABRIC)
@@ -413,7 +468,7 @@ export default function InventoryList() {
                     : 100
 
                   return (
-                    <tr key={fabric.id}>
+                    <ClickableRow key={fabric.id} onClick={() => setDetailFabric(fabric)}>
                       <td><strong>{fabric.code}</strong></td>
                       <td>{fabric.description}</td>
                       <td>{fabric.color ?? '—'}</td>
@@ -439,15 +494,18 @@ export default function InventoryList() {
                         R$ {Number(fabric.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
                       </MonoCell>
                       <td>
-                        <Badge color={
-                          status.label === 'OK'      ? 'success' :
-                          status.label === 'Baixo'   ? 'warning' : 'danger'
-                        }>
-                          {status.label === 'Baixo' && <AlertTriangle size={11} />}
-                          {status.label}
-                        </Badge>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Badge color={
+                            status.label === 'OK'      ? 'success' :
+                            status.label === 'Baixo'   ? 'warning' : 'danger'
+                          }>
+                            {status.label === 'Baixo' && <AlertTriangle size={11} />}
+                            {status.label}
+                          </Badge>
+                          <ChevronRight size={13} style={{ color: '#d1d5db', flexShrink: 0 }} />
+                        </div>
                       </td>
-                      <td>
+                      <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <Button variant="ghost" size="xs" onClick={() => openEditFabric(fabric)}>
                             <Pencil size={12} /> Editar
@@ -463,7 +521,7 @@ export default function InventoryList() {
                           </Button>
                         </div>
                       </td>
-                    </tr>
+                    </ClickableRow>
                   )
                 })}
               </tbody>
@@ -479,6 +537,154 @@ export default function InventoryList() {
           )}
         </CardBody>
       </Card>
+
+      {/* ======== MODAL DETALHES DO TECIDO ======== */}
+      {detailFabric && (() => {
+        const f      = detailFabric
+        const avail  = f.available_stock ?? f.current_stock
+        const status = getStockStatus(f)
+        const pct    = f.minimum_stock > 0 ? Math.min((avail / f.minimum_stock) * 100, 100) : 100
+        const totalValue = Number(f.current_stock) * Number(f.average_cost)
+
+        return (
+          <Modal
+            open={!!detailFabric}
+            onClose={() => setDetailFabric(null)}
+            title={`${f.code} — ${f.description}`}
+            size="lg"
+          >
+            {/* Resumo de estoque em destaque */}
+            <StockSummary>
+              <StockFigure>
+                <div className="val">{Number(f.current_stock).toFixed(2)}</div>
+                <div className="lbl">Estoque total ({f.unit})</div>
+              </StockFigure>
+              <StockFigure>
+                <div className="val" style={{ color: f.reserved_stock > 0 ? '#d97706' : undefined }}>
+                  {Number(f.reserved_stock ?? 0).toFixed(2)}
+                </div>
+                <div className="lbl">Reservado ({f.unit})</div>
+              </StockFigure>
+              <StockFigure>
+                <div className="val" style={{ color: avail <= 0 ? '#ef4444' : '#15803d' }}>
+                  {Number(avail).toFixed(2)}
+                </div>
+                <div className="lbl">Disponível ({f.unit})</div>
+              </StockFigure>
+              <StockFigure>
+                <div className="val">{Number(f.minimum_stock).toFixed(2)}</div>
+                <div className="lbl">Mínimo ({f.unit})</div>
+              </StockFigure>
+              <StockFigure>
+                <div className="val">
+                  R$ {Number(f.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                </div>
+                <div className="lbl">Preço médio / {f.unit}</div>
+              </StockFigure>
+              <StockFigure>
+                <div className="val">
+                  R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="lbl">Valor em estoque</div>
+              </StockFigure>
+            </StockSummary>
+
+            {/* Barra de estoque */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Nível de estoque</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: status.color }}>
+                  {status.label} — {pct.toFixed(0)}% do mínimo
+                </span>
+              </div>
+              <div style={{ height: 8, borderRadius: 999, backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, backgroundColor: status.color, borderRadius: 999, transition: 'width 0.4s ease' }} />
+              </div>
+            </div>
+
+            {/* Dados cadastrais */}
+            <DetailSection>
+              <DetailSectionTitle>Dados Cadastrais</DetailSectionTitle>
+              <DetailGrid cols="2">
+                <DetailField>
+                  <DetailLabel>Código</DetailLabel>
+                  <DetailValue>{f.code}</DetailValue>
+                </DetailField>
+                <DetailField>
+                  <DetailLabel>Unidade</DetailLabel>
+                  <DetailValue style={{ textTransform: 'capitalize' }}>{f.unit}</DetailValue>
+                </DetailField>
+                <DetailField>
+                  <DetailLabel>Cor</DetailLabel>
+                  <DetailValue>{f.color || '—'}</DetailValue>
+                </DetailField>
+                <DetailField>
+                  <DetailLabel>Fornecedor</DetailLabel>
+                  <DetailValue>{f.supplier || '—'}</DetailValue>
+                </DetailField>
+                {f.notes && (
+                  <DetailField css={{ gridColumn: '1 / -1' }}>
+                    <DetailLabel>Observações</DetailLabel>
+                    <DetailValue style={{ fontWeight: 400 }}>{f.notes}</DetailValue>
+                  </DetailField>
+                )}
+              </DetailGrid>
+            </DetailSection>
+
+            {/* Dados técnicos */}
+            {(f.composition || f.width_cm || f.grammage || f.weight_kg_per_meter || f.yield_pieces_per_meter) && (
+              <DetailSection>
+                <DetailSectionTitle>Dados Técnicos de Corte</DetailSectionTitle>
+                <DetailGrid cols="2">
+                  {f.composition && (
+                    <DetailField css={{ gridColumn: '1 / -1' }}>
+                      <DetailLabel>Composição</DetailLabel>
+                      <DetailValue style={{ fontWeight: 400 }}>{f.composition}</DetailValue>
+                    </DetailField>
+                  )}
+                  {f.width_cm && (
+                    <DetailField>
+                      <DetailLabel>Largura</DetailLabel>
+                      <DetailValue>{Number(f.width_cm).toFixed(1)} cm</DetailValue>
+                    </DetailField>
+                  )}
+                  {f.grammage && (
+                    <DetailField>
+                      <DetailLabel>Gramatura</DetailLabel>
+                      <DetailValue>{Number(f.grammage).toFixed(1)} g/m²</DetailValue>
+                    </DetailField>
+                  )}
+                  {f.weight_kg_per_meter && (
+                    <DetailField>
+                      <DetailLabel>Peso por metro</DetailLabel>
+                      <DetailValue>{Number(f.weight_kg_per_meter).toFixed(4)} kg/m</DetailValue>
+                    </DetailField>
+                  )}
+                  {f.yield_pieces_per_meter && (
+                    <DetailField>
+                      <DetailLabel>Rendimento</DetailLabel>
+                      <DetailValue>{Number(f.yield_pieces_per_meter).toFixed(4)} peças/m</DetailValue>
+                    </DetailField>
+                  )}
+                </DetailGrid>
+              </DetailSection>
+            )}
+
+            <ModalFooter>
+              <Button variant="ghost" onClick={() => setDetailFabric(null)}>Fechar</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setDetailFabric(null); openExit(f) }}>
+                <ArrowUpCircle size={14} /> Saída
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => { setDetailFabric(null); openEntry(f) }}>
+                <ArrowDownCircle size={14} /> Entrada
+              </Button>
+              <Button size="sm" onClick={() => { setDetailFabric(null); openEditFabric(f) }}>
+                <Pencil size={14} /> Editar
+              </Button>
+            </ModalFooter>
+          </Modal>
+        )
+      })()}
 
       {/* Confirmação de desativação */}
       <ConfirmDialog
