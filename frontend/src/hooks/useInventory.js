@@ -128,8 +128,7 @@ export function useInventory() {
     setLoading(true)
     setError(null)
     try {
-      const apiUrl = import.meta.env.VITE_API_URL
-      if (!apiUrl) throw new Error('VITE_API_URL não está configurada. Verifique o arquivo .env do frontend.')
+      const apiUrl = import.meta.env.VITE_API_URL ?? ''
 
       const response = await fetch(`${apiUrl}/api/inventory/entrada`, {
         method: 'POST',
@@ -159,8 +158,7 @@ export function useInventory() {
     setLoading(true)
     setError(null)
     try {
-      const apiUrl = import.meta.env.VITE_API_URL
-      if (!apiUrl) throw new Error('VITE_API_URL não está configurada. Verifique o arquivo .env do frontend.')
+      const apiUrl = import.meta.env.VITE_API_URL ?? ''
 
       const response = await fetch(`${apiUrl}/api/inventory/saida`, {
         method: 'POST',
