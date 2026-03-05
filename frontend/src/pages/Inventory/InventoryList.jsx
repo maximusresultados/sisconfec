@@ -58,8 +58,8 @@ const SearchWrapper = styled('div', {
 
 const SearchInput = styled('input', {
   width: '100%',
-  pl: '$8',
-  pr: '$3',
+  paddingLeft: '$8',
+  paddingRight: '$3',
   py: '$2',
   fontSize: '$sm',
   border: '1px solid $border',

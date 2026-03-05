@@ -264,7 +264,7 @@ export default function PurchaseOrders() {
       </PageHeader>
 
       <Card padding="none">
-        <div style={{ padding: '16px 16px 0' }}>
+        <CardHeader css={{ px: '$4', pt: '$4', pb: '0', borderBottom: 'none' }}>
           <Toolbar>
             <SearchWrapper>
               <Search />
@@ -283,7 +283,7 @@ export default function PurchaseOrders() {
               />
             </div>
           </Toolbar>
-        </div>
+        </CardHeader>
 
         <CardBody css={{ px: 0, pb: 0 }}>
           {loading ? (
