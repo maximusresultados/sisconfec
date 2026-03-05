@@ -67,8 +67,7 @@ const Toolbar = styled('div', {
 
 const SearchWrapper = styled('div', {
   position: 'relative',
-  flex: 1,
-  minWidth: '200px',
+  width: '240px',
 
   '& svg': {
     position: 'absolute',
@@ -480,7 +479,7 @@ export default function FactionDispatches() {
             <SearchWrapper>
               <Search />
               <SearchInput
-                placeholder="Buscar por nº da remessa..."
+                placeholder="Busca"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

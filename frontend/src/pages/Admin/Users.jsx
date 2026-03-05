@@ -30,7 +30,7 @@ const Toolbar = styled('div', {
 })
 
 const SearchWrapper = styled('div', {
-  position: 'relative', flex: 1, minWidth: '240px',
+  position: 'relative', width: '240px',
   '& svg': { position: 'absolute', left: '$3', top: '50%', transform: 'translateY(-50%)', color: '$textDisabled', width: '16px', height: '16px', pointerEvents: 'none' },
 })
 const SearchInput = styled('input', {
@@ -245,7 +245,7 @@ export default function Users() {
             <SearchWrapper>
               <Search />
               <SearchInput
-                placeholder="Buscar por nome, e-mail ou perfil..."
+                placeholder="Busca"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

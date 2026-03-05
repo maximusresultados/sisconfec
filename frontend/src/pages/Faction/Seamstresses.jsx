@@ -62,8 +62,7 @@ const Toolbar = styled('div', {
 
 const SearchWrapper = styled('div', {
   position: 'relative',
-  flex: 1,
-  minWidth: '240px',
+  width: '240px',
 
   '& svg': {
     position: 'absolute',
@@ -336,7 +335,7 @@ export default function Seamstresses() {
             <SearchWrapper>
               <Search />
               <SearchInput
-                placeholder="Buscar por nome ou cidade..."
+                placeholder="Busca"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

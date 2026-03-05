@@ -52,7 +52,7 @@ const PageHeader = styled('div', {
 const PageTitle = styled('h2', { fontSize: '$2xl', fontWeight: '$bold', color: '$textPrimary' })
 const Toolbar = styled('div', { display: 'flex', gap: '$3', alignItems: 'center', marginBottom: '$4', flexWrap: 'wrap' })
 const SearchWrapper = styled('div', {
-  position: 'relative', flex: 1, minWidth: '240px',
+  position: 'relative', width: '240px',
   '& svg': { position: 'absolute', left: '$3', top: '50%', transform: 'translateY(-50%)', color: '$textDisabled', width: '16px', height: '16px', pointerEvents: 'none' },
 })
 const SearchInput = styled('input', {
@@ -274,7 +274,7 @@ export default function TechnicalSheets() {
             <SearchWrapper>
               <Search />
               <SearchInput
-                placeholder="Buscar por código ou nome..."
+                placeholder="Busca"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

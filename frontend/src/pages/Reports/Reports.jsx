@@ -344,12 +344,12 @@ export default function Reports() {
                           </Badge>
                         </td>
                         <MonoCell>{Number(row.quantity).toFixed(2)}</MonoCell>
-                        <MonoCell>R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}</MonoCell>
+                        <MonoCell>R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
                         <MonoCell>R$ {Number(row.total_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
                         <MonoCell>{Number(row.stock_before ?? 0).toFixed(2)}</MonoCell>
                         <MonoCell>{Number(row.stock_after ?? 0).toFixed(2)}</MonoCell>
-                        <MonoCell>R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}</MonoCell>
-                        <MonoCell>R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}</MonoCell>
+                        <MonoCell>R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
+                        <MonoCell>R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
                         <td>{row.reference_doc ?? '—'}</td>
                         <td>{row.created_by_name ?? '—'}</td>
                       </tr>
@@ -403,7 +403,7 @@ export default function Reports() {
                           <MonoCell>{Number(row.current_stock).toFixed(2)}</MonoCell>
                           <MonoCell>{Number(row.minimum_stock).toFixed(2)}</MonoCell>
                           <MonoCell style={{ color: '#b91c1c', fontWeight: 600 }}>{deficit.toFixed(2)}</MonoCell>
-                          <MonoCell>R$ {Number(row.average_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}</MonoCell>
+                          <MonoCell>R$ {Number(row.average_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
                           <MonoCell>R$ {Number(row.value_at_risk ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</MonoCell>
                           <td><Badge color={urgency}>{deficitPct > 50 ? 'Crítico' : 'Baixo'}</Badge></td>
                         </tr>

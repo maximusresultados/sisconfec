@@ -136,7 +136,7 @@ export default function InventoryMovements() {
                     </td>
                     <MonoCell>{Number(row.quantity).toFixed(2)}</MonoCell>
                     <MonoCell>
-                      R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                      R$ {Number(row.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </MonoCell>
                     <MonoCell>
                       R$ {Number(row.total_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -144,10 +144,10 @@ export default function InventoryMovements() {
                     <MonoCell>{Number(row.stock_before ?? 0).toFixed(2)}</MonoCell>
                     <MonoCell>{Number(row.stock_after ?? 0).toFixed(2)}</MonoCell>
                     <MonoCell>
-                      R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                      R$ {Number(row.average_cost_before ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </MonoCell>
                     <MonoCell>
-                      R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                      R$ {Number(row.average_cost_after ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </MonoCell>
                     <td>{row.reference_doc ?? '—'}</td>
                     <td>{row.created_by_name ?? '—'}</td>

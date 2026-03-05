@@ -2,9 +2,11 @@
  * InventoryList — Lista de tecidos com modais de cadastro, entrada e saída
  */
 import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Search, RefreshCw, AlertTriangle, Package, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2, ChevronRight, RotateCcw } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
+import { supabase } from '@/lib/supabase'
 import { useInventory } from '@/hooks/useInventory'
+import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
@@ -40,8 +42,7 @@ const Toolbar = styled('div', {
 
 const SearchWrapper = styled('div', {
   position: 'relative',
-  flex: 1,
-  minWidth: '240px',
+  width: '240px',
 
   '& svg': {
     position: 'absolute',
@@ -224,12 +225,19 @@ const UNIT_OPTIONS = [
 // ------- COMPONENTE -------
 export default function InventoryList() {
   const { fetchFabrics, createFabric, updateFabric, deactivateFabric, registerEntry, registerExit, loading } = useInventory()
+  const { profile } = useAuth()
+  const tenantId = profile?.tenant_id
   const toast = useToast()
 
   const [fabrics,  setFabrics]  = useState([])
   const [search,   setSearch]   = useState('')
   const [saving,   setSaving]   = useState(false)
   const [formError, setFormError] = useState('')
+
+  // Tecidos desativados
+  const [inactiveFabrics,  setInactiveFabrics]  = useState([])
+  const [loadingInactive,  setLoadingInactive]  = useState(false)
+  const [showInactive,     setShowInactive]     = useState(false)
 
   // Modais
   const [modalFabric, setModalFabric] = useState(false)
@@ -250,6 +258,35 @@ export default function InventoryList() {
   async function loadFabrics() {
     const data = await fetchFabrics()
     setFabrics(data)
+  }
+
+  async function loadInactiveFabrics() {
+    if (!tenantId) return
+    setLoadingInactive(true)
+    const { data } = await supabase
+      .from('fabrics')
+      .select('id, code, description, color, supplier, unit, current_stock, average_cost')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', false)
+      .order('code')
+    setInactiveFabrics(data ?? [])
+    setLoadingInactive(false)
+  }
+
+  async function handleReactivate(fabric) {
+    try {
+      await updateFabric(fabric.id, { is_active: true })
+      toast?.success(`Tecido "${fabric.description}" reativado.`)
+      setInactiveFabrics(prev => prev.filter(f => f.id !== fabric.id))
+      await loadFabrics()
+    } catch (err) {
+      toast?.error(err.message || 'Erro ao reativar tecido.')
+    }
+  }
+
+  function toggleInactive() {
+    if (!showInactive) loadInactiveFabrics()
+    setShowInactive(v => !v)
   }
 
   // ------- ABRIR MODAIS -------
@@ -426,7 +463,7 @@ export default function InventoryList() {
             <SearchWrapper>
               <Search />
               <SearchInput
-                placeholder="Buscar tecido..."
+                placeholder="Busca"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -491,7 +528,7 @@ export default function InventoryList() {
                       </MonoCell>
                       <MonoCell>{Number(fabric.minimum_stock).toFixed(2)} {fabric.unit}</MonoCell>
                       <MonoCell>
-                        R$ {Number(fabric.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                        R$ {Number(fabric.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </MonoCell>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -535,6 +572,76 @@ export default function InventoryList() {
               onPageChange={pagination.setPage}
             />
           )}
+
+          {/* Tecidos desativados */}
+          <div style={{ padding: '8px 16px 12px', borderTop: '1px solid var(--colors-border)' }}>
+            <button
+              onClick={toggleInactive}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--colors-textSecondary)', fontSize: '0.8125rem',
+                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0',
+              }}
+            >
+              <ChevronRight
+                size={14}
+                style={{ transform: showInactive ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}
+              />
+              Tecidos desativados
+              {showInactive && inactiveFabrics.length > 0 && (
+                <span style={{ background: '#e5e7eb', borderRadius: 999, padding: '1px 7px', fontSize: '0.75rem' }}>
+                  {inactiveFabrics.length}
+                </span>
+              )}
+            </button>
+
+            {showInactive && (
+              <div style={{ marginTop: 8 }}>
+                {loadingInactive ? (
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--colors-textSecondary)', padding: '8px 0' }}>
+                    Carregando...
+                  </p>
+                ) : inactiveFabrics.length === 0 ? (
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--colors-textSecondary)', padding: '8px 0' }}>
+                    Nenhum tecido desativado.
+                  </p>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                    <thead>
+                      <tr>
+                        {['Código','Descrição','Cor','Fornecedor','Estoque','Preço Médio',''].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '6px 12px', color: 'var(--colors-textSecondary)', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--colors-border)', backgroundColor: 'var(--colors-gray50)' }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inactiveFabrics.map(f => (
+                        <tr key={f.id} style={{ opacity: 0.7 }}>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textPrimary)' }}><strong>{f.code}</strong></td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textSecondary)' }}>{f.description}</td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textSecondary)' }}>{f.color ?? '—'}</td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textSecondary)' }}>{f.supplier ?? '—'}</td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textSecondary)', fontVariantNumeric: 'tabular-nums' }}>
+                            {Number(f.current_stock).toFixed(2)} {f.unit}
+                          </td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)', color: 'var(--colors-textSecondary)', fontVariantNumeric: 'tabular-nums' }}>
+                            R$ {Number(f.average_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '6px 12px', borderBottom: '1px solid var(--colors-border)' }}>
+                            <Button variant="ghost" size="xs" onClick={() => handleReactivate(f)}>
+                              <RotateCcw size={12} /> Reativar
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
         </CardBody>
       </Card>
 
@@ -577,7 +684,7 @@ export default function InventoryList() {
               </StockFigure>
               <StockFigure>
                 <div className="val">
-                  R$ {Number(f.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+                  R$ {Number(f.average_cost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
                 <div className="lbl">Preço médio / {f.unit}</div>
               </StockFigure>

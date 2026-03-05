@@ -218,12 +218,12 @@ export default function PaymentHistory() {
       )}
 
       {/* Busca inline */}
-      <div style={{ marginBottom: 12, maxWidth: 340 }}>
-        <div style={{ position: 'relative' }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ position: 'relative', width: 240 }}>
           <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
           <input
             style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, fontSize: '0.875rem', border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', background: 'var(--colors-surface, #fff)', color: 'var(--colors-textPrimary, #111827)' }}
-            placeholder="Buscar por remessa ou costureira..."
+            placeholder="Busca"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
