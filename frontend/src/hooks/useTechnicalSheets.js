@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import * as qc from '@/lib/queryCache'
 
 export function useTechnicalSheets() {
   const { profile } = useAuth()
@@ -15,6 +16,14 @@ export function useTechnicalSheets() {
   // ------- FICHAS TÉCNICAS -------
 
   const fetchSheets = useCallback(async (filters = {}) => {
+    const noFilters = Object.keys(filters).length === 0
+    const cacheKey  = `sheets:${tenantId}`
+
+    if (noFilters) {
+      const cached = qc.get(cacheKey)
+      if (cached) return cached
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -31,7 +40,9 @@ export function useTechnicalSheets() {
 
       const { data, error } = await query
       if (error) throw error
-      return (data ?? []).map(s => ({ ...s, items_count: s.items?.length ?? 0 }))
+      const mapped = (data ?? []).map(s => ({ ...s, items_count: s.items?.length ?? 0 }))
+      if (noFilters) qc.set(cacheKey, mapped)
+      return mapped
     } catch (err) {
       setError(err.message)
       return []
@@ -60,6 +71,7 @@ export function useTechnicalSheets() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
     return result
   }, [tenantId, profile?.id])
 
@@ -73,6 +85,7 @@ export function useTechnicalSheets() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
     return data
   }, [tenantId])
 
@@ -90,6 +103,7 @@ export function useTechnicalSheets() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
     return data
   }, [tenantId])
 
@@ -103,6 +117,7 @@ export function useTechnicalSheets() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
     return data
   }, [tenantId])
 
@@ -114,6 +129,7 @@ export function useTechnicalSheets() {
       .eq('tenant_id', tenantId)
 
     if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
   }, [tenantId])
 
   return {

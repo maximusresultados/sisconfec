@@ -1,12 +1,10 @@
 /**
  * useCuttingOrders — Hook de gerenciamento de ordens de corte
- *
- * Encapsula todas as operações de leitura e escrita relacionadas
- * a ordens de corte e execuções de corte.
  */
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import * as qc from '@/lib/queryCache'
 
 export function useCuttingOrders() {
   const { profile } = useAuth()
@@ -17,8 +15,15 @@ export function useCuttingOrders() {
 
   // ------- ORDENS DE CORTE -------
 
-  /** Lista ordens de corte com JOIN em fabrics */
   const fetchOrders = useCallback(async (filters = {}) => {
+    const noFilters = Object.keys(filters).length === 0
+    const cacheKey  = `orders:${tenantId}`
+
+    if (noFilters) {
+      const cached = qc.get(cacheKey)
+      if (cached) return cached
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -32,20 +37,13 @@ export function useCuttingOrders() {
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
 
-      if (filters.status) {
-        query = query.eq('status', filters.status)
-      }
-      if (filters.priority) {
-        query = query.eq('priority', filters.priority)
-      }
-      if (filters.search) {
-        query = query.or(
-          `order_number.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-        )
-      }
+      if (filters.status)   query = query.eq('status', filters.status)
+      if (filters.priority) query = query.eq('priority', filters.priority)
+      if (filters.search)   query = query.or(`order_number.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
 
       const { data, error } = await query
       if (error) throw error
+      if (noFilters) qc.set(cacheKey, data)
       return data
     } catch (err) {
       setError(err.message)
@@ -55,7 +53,6 @@ export function useCuttingOrders() {
     }
   }, [tenantId])
 
-  /** Cria uma nova ordem de corte (não inclui total_pieces — GENERATED) */
   const createOrder = useCallback(async (data) => {
     const { data: result, error } = await supabase
       .from('cutting_orders')
@@ -64,10 +61,10 @@ export function useCuttingOrders() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`orders:${tenantId}`)
     return result
   }, [tenantId, profile?.id])
 
-  /** Atualiza apenas o campo status de uma ordem */
   const updateOrderStatus = useCallback(async (id, status) => {
     const { data, error } = await supabase
       .from('cutting_orders')
@@ -78,12 +75,12 @@ export function useCuttingOrders() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`orders:${tenantId}`)
     return data
   }, [tenantId])
 
   // ------- EXECUÇÕES DE CORTE -------
 
-  /** Lista execuções de uma ordem de corte específica */
   const fetchExecutions = useCallback(async (orderId) => {
     const { data, error } = await supabase
       .from('cutting_executions')
@@ -96,7 +93,6 @@ export function useCuttingOrders() {
     return data
   }, [tenantId])
 
-  /** Cria uma execução de corte (não inclui actual_total — GENERATED) */
   const createExecution = useCallback(async (data) => {
     const { data: result, error } = await supabase
       .from('cutting_executions')
@@ -105,10 +101,10 @@ export function useCuttingOrders() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`orders:${tenantId}`)
     return result
   }, [tenantId, profile?.id])
 
-  /** Registra revisão de uma execução de corte */
   const reviewExecution = useCallback(async (id, { review_status, review_notes }) => {
     const { data, error } = await supabase
       .from('cutting_executions')
@@ -124,6 +120,7 @@ export function useCuttingOrders() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`orders:${tenantId}`)
     return data
   }, [tenantId, profile?.id])
 

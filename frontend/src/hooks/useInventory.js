@@ -7,6 +7,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import * as qc from '@/lib/queryCache'
 
 /**
  * Faz o parse seguro da resposta do backend.
@@ -43,6 +44,14 @@ export function useInventory() {
 
   /** Lista todos os tecidos ativos do tenant (com reserved_stock e available_stock) */
   const fetchFabrics = useCallback(async (filters = {}) => {
+    const noFilters = Object.keys(filters).length === 0
+    const cacheKey  = `fabrics:${tenantId}`
+
+    if (noFilters) {
+      const cached = qc.get(cacheKey)
+      if (cached) return cached
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -64,6 +73,7 @@ export function useInventory() {
 
       const { data, error } = await query
       if (error) throw error
+      if (noFilters) qc.set(cacheKey, data)
       return data
     } catch (err) {
       setError(err.message)
@@ -95,6 +105,7 @@ export function useInventory() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`fabrics:${tenantId}`)
     return data
   }, [tenantId, profile?.id])
 
@@ -109,6 +120,7 @@ export function useInventory() {
       .single()
 
     if (error) throw error
+    qc.invalidate(`fabrics:${tenantId}`)
     return data
   }, [tenantId])
 
@@ -141,6 +153,7 @@ export function useInventory() {
 
       const data = await parseApiResponse(response)
       if (!response.ok) throw new Error(data.message || `Erro ${response.status} ao registrar entrada.`)
+      qc.invalidate(`fabrics:${tenantId}`)
       return data
     } catch (err) {
       setError(err.message)
@@ -148,7 +161,7 @@ export function useInventory() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tenantId])
 
   /**
    * Registra uma saída de estoque.
@@ -171,6 +184,7 @@ export function useInventory() {
 
       const data = await parseApiResponse(response)
       if (!response.ok) throw new Error(data.message || `Erro ${response.status} ao registrar saída.`)
+      qc.invalidate(`fabrics:${tenantId}`)
       return data
     } catch (err) {
       setError(err.message)
@@ -178,7 +192,7 @@ export function useInventory() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tenantId])
 
   /** Busca o Kardex de um tecido específico, com filtros opcionais de data */
   const fetchKardex = useCallback(async (fabricId, { limit = 50, offset = 0, dateFrom, dateTo } = {}) => {
