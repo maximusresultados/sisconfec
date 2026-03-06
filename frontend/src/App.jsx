@@ -28,6 +28,7 @@ const PaymentHistory    = lazy(() => import('@/pages/Faction/PaymentHistory'))
 const Reports           = lazy(() => import('@/pages/Reports/Reports'))
 const Users             = lazy(() => import('@/pages/Admin/Users'))
 const ActivityLog       = lazy(() => import('@/pages/Admin/ActivityLog'))
+const AdminMetrics      = lazy(() => import('@/pages/Admin/AdminMetrics'))
 const PurchaseOrders    = lazy(() => import('@/pages/Inventory/PurchaseOrders'))
 const Profile           = lazy(() => import('@/pages/Auth/Profile'))
 
@@ -112,6 +113,9 @@ function App() {
                       } />
                       <Route path="admin/auditoria" element={
                         <AdminRoute><ActivityLog /></AdminRoute>
+                      } />
+                      <Route path="admin/metricas" element={
+                        <AdminRoute><AdminMetrics /></AdminRoute>
                       } />
 
                       {/* Fallback */}

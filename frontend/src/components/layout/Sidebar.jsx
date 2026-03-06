@@ -5,7 +5,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Scissors, Shirt,
   Users, BarChart2, ChevronRight, LogOut, ClipboardList,
-  ShoppingCart, CreditCard, Moon, Sun, UserCog, Activity,
+  ShoppingCart, CreditCard, Moon, Sun, UserCog, Activity, PieChart,
 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useAuth } from '@/contexts/AuthContext'
@@ -151,6 +151,7 @@ const NAV_ITEMS = [
   {
     section: 'Administração',
     items: [
+      { to: '/admin/metricas',  label: 'Métricas',   icon: PieChart, roles: ['admin'] },
       { to: '/admin/usuarios',  label: 'Usuários',   icon: UserCog,  roles: ['admin'] },
       { to: '/admin/auditoria', label: 'Auditoria',  icon: Activity, roles: ['admin'] },
     ],

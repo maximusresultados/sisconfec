@@ -41,10 +41,18 @@ export function AuthProvider({ children }) {
 
     // Listener de mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session)
         if (session) {
           await loadProfile()
+          // Registra último acesso apenas no login efetivo
+          if (event === 'SIGNED_IN') {
+            supabase
+              .from('profiles')
+              .update({ last_seen_at: new Date().toISOString() })
+              .eq('id', session.user.id)
+              .then(() => {}) // silencia erros — não crítico
+          }
         } else {
           setProfile(null)
         }
