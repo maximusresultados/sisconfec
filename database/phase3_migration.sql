@@ -30,7 +30,7 @@ ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 
 -- Somente leitura para usuários autenticados do tenant
 CREATE POLICY "activity_log_read" ON activity_log
-  FOR SELECT USING (tenant_id = get_tenant_id());
+  FOR SELECT USING (tenant_id = public.get_user_tenant_id());
 
 -- ------------------------------------------------------------
 -- 2. FUNÇÃO GENÉRICA DE LOG
