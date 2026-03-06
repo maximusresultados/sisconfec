@@ -67,6 +67,17 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  // Atualiza o perfil do usuário (full_name) na tabela profiles
+  async function updateProfile({ full_name }) {
+    if (!session?.user?.id) throw new Error('Usuário não autenticado.')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name })
+      .eq('id', session.user.id)
+    if (error) throw error
+    setProfile(p => ({ ...p, full_name }))
+  }
+
   // Verifica se o usuário possui uma das roles permitidas
   function hasRole(...roles) {
     return profile ? roles.includes(profile.role) : false
@@ -79,6 +90,7 @@ export function AuthProvider({ children }) {
     loading,
     signIn,
     signOut,
+    updateProfile,
     hasRole,
     isAdmin:        () => hasRole('admin'),
     isEstoquista:   () => hasRole('admin', 'estoquista'),

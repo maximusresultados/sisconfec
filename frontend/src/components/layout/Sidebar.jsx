@@ -1,15 +1,16 @@
 /**
  * Sidebar — Menu lateral com RBAC, dark mode toggle e novos itens
  */
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Scissors, Shirt,
   Users, BarChart2, ChevronRight, LogOut, ClipboardList,
-  ShoppingCart, CreditCard, Moon, Sun, UserCog,
+  ShoppingCart, CreditCard, Moon, Sun, UserCog, Activity,
 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
+import NotificationBell from '@/components/common/NotificationBell'
 
 // ------- ESTILOS -------
 const SidebarWrapper = styled('aside', {
@@ -150,7 +151,8 @@ const NAV_ITEMS = [
   {
     section: 'Administração',
     items: [
-      { to: '/admin/usuarios', label: 'Usuários', icon: UserCog, roles: ['admin'] },
+      { to: '/admin/usuarios',  label: 'Usuários',   icon: UserCog,  roles: ['admin'] },
+      { to: '/admin/auditoria', label: 'Auditoria',  icon: Activity, roles: ['admin'] },
     ],
   },
 ]
@@ -166,6 +168,7 @@ const ROLE_LABEL = {
 export default function Sidebar() {
   const { profile, signOut } = useAuth()
   const { isDark, toggle }   = useTheme()
+  const navigate             = useNavigate()
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -208,8 +211,18 @@ export default function Sidebar() {
       </Nav>
 
       <UserArea>
-        <Avatar>{initials}</Avatar>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <Avatar
+          onClick={() => navigate('/perfil')}
+          style={{ cursor: 'pointer' }}
+          title="Meu perfil"
+        >
+          {initials}
+        </Avatar>
+        <div
+          style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+          onClick={() => navigate('/perfil')}
+          title="Meu perfil"
+        >
           <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile?.full_name ?? 'Carregando...'}
           </div>
@@ -217,6 +230,7 @@ export default function Sidebar() {
             {ROLE_LABEL[profile?.role] ?? ''}
           </div>
         </div>
+        <NotificationBell />
         <IconBtn onClick={toggle} title={isDark ? 'Modo claro' : 'Modo escuro'}>
           {isDark ? <Sun /> : <Moon />}
         </IconBtn>

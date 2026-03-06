@@ -1,14 +1,13 @@
 /**
- * Login — Página de autenticação
+ * ForgotPassword — Solicitar link de recuperação de senha
  */
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 import { styled } from '@/styles/stitches.config'
 import { Button } from '@/components/common/Button'
 import { Card } from '@/components/common/Card'
 
-// ------- ESTILOS -------
 const Page = styled('div', {
   minHeight: '100vh',
   display: 'flex',
@@ -60,15 +59,11 @@ const Input = styled('input', {
   backgroundColor: '$surface',
   color: '$textPrimary',
   transition: 'border-color $fast, box-shadow $fast',
-
   '&:focus': {
     borderColor: '$primary500',
     boxShadow: '0 0 0 3px $colors$primary100',
   },
-
-  '&::placeholder': {
-    color: '$textDisabled',
-  },
+  '&::placeholder': { color: '$textDisabled' },
 })
 
 const ErrorMsg = styled('p', {
@@ -78,41 +73,66 @@ const ErrorMsg = styled('p', {
   textAlign: 'center',
 })
 
-// ------- COMPONENTE -------
-export default function Login() {
-  const { signIn } = useAuth()
-  const navigate   = useNavigate()
+const BackLink = styled('div', {
+  textAlign: 'center',
+  mt: '$4',
+  '& a': {
+    fontSize: '$sm',
+    color: '$primary600',
+    textDecoration: 'none',
+    '&:hover': { textDecoration: 'underline' },
+  },
+})
 
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
+export default function ForgotPassword() {
+  const [email,   setEmail]   = useState('')
+  const [sent,    setSent]    = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError('')
     setLoading(true)
-
+    setError('')
     try {
-      await signIn(email, password)
-      navigate('/')
-    } catch (err) {
-      setError(err.message === 'Invalid login credentials'
-        ? 'E-mail ou senha incorretos.'
-        : 'Erro ao fazer login. Tente novamente.'
-      )
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      setSent(true)
+    } catch {
+      setError('Erro ao enviar e-mail. Verifique o endereço e tente novamente.')
     } finally {
       setLoading(false)
     }
   }
 
+  if (sent) {
+    return (
+      <Page>
+        <LoginCard padding="lg">
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <img src="/logo-sard.png" alt="Sard" style={{ height: '72px', width: 'auto' }} />
+          </div>
+          <Title>E-mail enviado!</Title>
+          <Subtitle>
+            Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+            O link expira em 1 hora.
+          </Subtitle>
+          <BackLink><Link to="/login">Voltar ao login</Link></BackLink>
+        </LoginCard>
+      </Page>
+    )
+  }
+
   return (
     <Page>
       <LoginCard padding="lg">
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <img src="/logo-sard.png" alt="Sard" style={{ height: '72px', width: 'auto' }} />
         </div>
-        <Subtitle>Gestão de Estoque e Produção</Subtitle>
+        <Title>Recuperar senha</Title>
+        <Subtitle>Informe seu e-mail para receber o link de redefinição.</Subtitle>
 
         <form onSubmit={handleSubmit}>
           <FormGroup>
@@ -128,36 +148,14 @@ export default function Login() {
             />
           </FormGroup>
 
-          <FormGroup>
-            <label htmlFor="password">Senha</label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </FormGroup>
-
           {error && <ErrorMsg>{error}</ErrorMsg>}
 
           <Button type="submit" fullWidth disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? 'Enviando...' : 'Enviar link de recuperação'}
           </Button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <Link
-            to="/esqueci-senha"
-            style={{ fontSize: '0.875rem', color: '#3b82f6', textDecoration: 'none' }}
-            onMouseOver={e => e.target.style.textDecoration = 'underline'}
-            onMouseOut={e => e.target.style.textDecoration = 'none'}
-          >
-            Esqueci minha senha
-          </Link>
-        </div>
+        <BackLink><Link to="/login">Voltar ao login</Link></BackLink>
       </LoginCard>
     </Page>
   )

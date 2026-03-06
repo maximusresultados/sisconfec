@@ -12,9 +12,11 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import AppLayout from '@/components/layout/AppLayout'
 
 // Páginas carregadas imediatamente
-import Login         from '@/pages/Auth/Login'
-import Dashboard     from '@/pages/Dashboard/Dashboard'
-import InventoryList from '@/pages/Inventory/InventoryList'
+import Login           from '@/pages/Auth/Login'
+import ForgotPassword  from '@/pages/Auth/ForgotPassword'
+import ResetPassword   from '@/pages/Auth/ResetPassword'
+import Dashboard       from '@/pages/Dashboard/Dashboard'
+import InventoryList   from '@/pages/Inventory/InventoryList'
 import InventoryMovements from '@/pages/Inventory/InventoryMovements'
 
 // Páginas lazy
@@ -25,7 +27,9 @@ const Seamstresses      = lazy(() => import('@/pages/Faction/Seamstresses'))
 const PaymentHistory    = lazy(() => import('@/pages/Faction/PaymentHistory'))
 const Reports           = lazy(() => import('@/pages/Reports/Reports'))
 const Users             = lazy(() => import('@/pages/Admin/Users'))
+const ActivityLog       = lazy(() => import('@/pages/Admin/ActivityLog'))
 const PurchaseOrders    = lazy(() => import('@/pages/Inventory/PurchaseOrders'))
+const Profile           = lazy(() => import('@/pages/Auth/Profile'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,7 +74,9 @@ function App() {
                 }>
                   <Routes>
                     {/* Pública */}
-                    <Route path="/login" element={<Login />} />
+                    <Route path="/login"          element={<Login />} />
+                    <Route path="/esqueci-senha"  element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
 
                     {/* Protegidas com layout */}
                     <Route path="/" element={
@@ -97,9 +103,15 @@ function App() {
                       {/* Relatórios */}
                       <Route path="relatorios" element={<Reports />} />
 
+                      {/* Perfil */}
+                      <Route path="perfil" element={<Profile />} />
+
                       {/* Admin */}
                       <Route path="admin/usuarios" element={
                         <AdminRoute><Users /></AdminRoute>
+                      } />
+                      <Route path="admin/auditoria" element={
+                        <AdminRoute><ActivityLog /></AdminRoute>
                       } />
 
                       {/* Fallback */}

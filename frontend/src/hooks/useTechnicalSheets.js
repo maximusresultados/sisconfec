@@ -132,10 +132,49 @@ export function useTechnicalSheets() {
     qc.invalidate(`sheets:${tenantId}`)
   }, [tenantId])
 
+  // ------- IMAGEM -------
+
+  const uploadImage = useCallback(async (sheetId, file) => {
+    const ext  = file.name.split('.').pop().toLowerCase()
+    const path = `${tenantId}/${sheetId}/cover.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('technical-sheets')
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('technical-sheets')
+      .getPublicUrl(path)
+
+    const { error: updateError } = await supabase
+      .from('technical_sheets')
+      .update({ image_url: publicUrl })
+      .eq('id', sheetId)
+      .eq('tenant_id', tenantId)
+
+    if (updateError) throw updateError
+    qc.invalidate(`sheets:${tenantId}`)
+    return publicUrl
+  }, [tenantId])
+
+  const removeImage = useCallback(async (sheetId) => {
+    const { error } = await supabase
+      .from('technical_sheets')
+      .update({ image_url: null })
+      .eq('id', sheetId)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw error
+    qc.invalidate(`sheets:${tenantId}`)
+  }, [tenantId])
+
   return {
     loading, error,
     fetchSheets, fetchSheetById,
     createSheet, updateSheet, deactivateSheet,
     addItem, updateItem, removeItem,
+    uploadImage, removeImage,
   }
 }

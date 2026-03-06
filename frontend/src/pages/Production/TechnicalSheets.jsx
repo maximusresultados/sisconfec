@@ -1,8 +1,8 @@
 /**
  * TechnicalSheets — Cadastro e gestão de fichas técnicas de produtos
  */
-import { useEffect, useState } from 'react'
-import { Plus, Search, Edit2, FileText, Trash2, RefreshCw, ChevronRight } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Plus, Search, Edit2, FileText, Trash2, RefreshCw, ChevronRight, ImagePlus, X } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useTechnicalSheets } from '@/hooks/useTechnicalSheets'
 import { useAuth } from '@/contexts/AuthContext'
@@ -112,7 +112,7 @@ const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color:
 // ------- COMPONENTE -------
 export default function TechnicalSheets() {
   const { isAdmin, isEncarregadoCorte } = useAuth()
-  const { loading, error, fetchSheets, fetchSheetById, createSheet, updateSheet, deactivateSheet, addItem, updateItem, removeItem } = useTechnicalSheets()
+  const { loading, error, fetchSheets, fetchSheetById, createSheet, updateSheet, deactivateSheet, addItem, updateItem, removeItem, uploadImage, removeImage } = useTechnicalSheets()
 
   const [sheets,     setSheets]     = useState([])
   const [search,     setSearch]     = useState('')
@@ -127,6 +127,12 @@ export default function TechnicalSheets() {
   // Modal Detalhe
   const [detailSheet,    setDetailSheet]    = useState(null)
   const [loadingDetail,  setLoadingDetail]  = useState(false)
+
+  // Upload de imagem
+  const [imageFile,    setImageFile]    = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploadingImg, setUploadingImg] = useState(false)
+  const fileInputRef = useRef(null)
 
   // Modal Insumos
   const [showItems,  setShowItems]  = useState(false)
@@ -166,6 +172,8 @@ export default function TechnicalSheets() {
     setEditing(null)
     setSheetForm(EMPTY_SHEET)
     setSheetError('')
+    setImageFile(null)
+    setImagePreview(null)
     setShowSheet(true)
   }
 
@@ -173,7 +181,31 @@ export default function TechnicalSheets() {
     setEditing(sheet)
     setSheetForm({ product_code: sheet.product_code, product_name: sheet.product_name, product_type: sheet.product_type ?? '', description: sheet.description ?? '' })
     setSheetError('')
+    setImageFile(null)
+    setImagePreview(sheet.image_url ?? null)
     setShowSheet(true)
+  }
+
+  function handleImageSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setSheetError('Selecione um arquivo de imagem (JPG, PNG, WEBP).')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSheetError('A imagem deve ter no máximo 5 MB.')
+      return
+    }
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setSheetError('')
+  }
+
+  function clearImage() {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleSaveSheet() {
@@ -184,11 +216,30 @@ export default function TechnicalSheets() {
     setSaving(true)
     setSheetError('')
     try {
+      let sheet
       if (editing) {
-        await updateSheet(editing.id, sheetForm)
+        sheet = await updateSheet(editing.id, sheetForm)
       } else {
-        await createSheet(sheetForm)
+        sheet = await createSheet(sheetForm)
       }
+
+      // Upload da imagem se selecionada
+      if (imageFile && sheet?.id) {
+        setUploadingImg(true)
+        try {
+          await uploadImage(sheet.id, imageFile)
+        } catch (imgErr) {
+          setSheetError('Ficha salva, mas erro ao enviar imagem: ' + imgErr.message)
+          setUploadingImg(false)
+          load()
+          return
+        }
+        setUploadingImg(false)
+      } else if (!imagePreview && editing?.image_url) {
+        // Usuário removeu a imagem existente
+        await removeImage(editing.id)
+      }
+
       setShowSheet(false)
       load()
     } catch (err) {
@@ -388,6 +439,17 @@ export default function TechnicalSheets() {
           title={`${detailSheet.product_code} — ${detailSheet.product_name}`}
           size="lg"
         >
+          {/* Imagem do produto */}
+          {detailSheet.image_url && (
+            <DetailSection>
+              <img
+                src={detailSheet.image_url}
+                alt={detailSheet.product_name}
+                style={{ width: '100%', maxHeight: '260px', objectFit: 'cover', borderRadius: '8px', marginBottom: '4px' }}
+              />
+            </DetailSection>
+          )}
+
           {/* Informações do produto */}
           <DetailSection>
             <DetailSectionTitle>Dados do Produto</DetailSectionTitle>
@@ -507,10 +569,63 @@ export default function TechnicalSheets() {
             placeholder="Observações gerais sobre o produto..."
           />
         </div>
+
+        {/* Upload de imagem */}
+        <div style={{ marginTop: 20 }}>
+          <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--colors-textPrimary)', marginBottom: 8 }}>
+            Foto do Produto
+          </p>
+          {imagePreview ? (
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                src={imagePreview}
+                alt="Preview"
+                style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--colors-border)' }}
+              />
+              <button
+                type="button"
+                onClick={clearImage}
+                style={{
+                  position: 'absolute', top: 6, right: 6,
+                  background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
+                  width: 24, height: 24, cursor: 'pointer', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: '2px dashed var(--colors-border)', borderRadius: '8px',
+                padding: '24px', textAlign: 'center', cursor: 'pointer',
+                color: 'var(--colors-textSecondary)', fontSize: '0.875rem',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseOver={e => e.currentTarget.style.borderColor = '#3b82f6'}
+              onMouseOut={e => e.currentTarget.style.borderColor = 'var(--colors-border)'}
+            >
+              <ImagePlus size={24} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
+              Clique para selecionar uma imagem
+              <br />
+              <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>JPG, PNG ou WEBP — máx. 5 MB</span>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleImageSelect}
+          />
+        </div>
+
         <ModalFooter>
-          <Button variant="secondary" onClick={() => setShowSheet(false)} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSaveSheet} disabled={saving}>
-            {saving ? 'Salvando...' : editing ? 'Salvar Alterações' : 'Criar Ficha'}
+          <Button variant="secondary" onClick={() => setShowSheet(false)} disabled={saving || uploadingImg}>Cancelar</Button>
+          <Button onClick={handleSaveSheet} disabled={saving || uploadingImg}>
+            {uploadingImg ? 'Enviando imagem...' : saving ? 'Salvando...' : editing ? 'Salvar Alterações' : 'Criar Ficha'}
           </Button>
         </ModalFooter>
       </Modal>

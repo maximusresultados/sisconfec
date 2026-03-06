@@ -3,7 +3,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Package, Scissors, Shirt, AlertTriangle, RefreshCw } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts'
 import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -150,7 +150,9 @@ export default function Dashboard() {
   const [kpis,   setKpis]       = useState({ totalPiecesMonth: 0, openOrders: 0, openDispatches: 0, lowStockCount: 0 })
   const [lowStock,  setLowStock]  = useState([])
   const [orders,    setOrders]    = useState([])
-  const [chartData, setChartData] = useState([])
+  const [chartData,       setChartData]       = useState([])
+  const [productionData,  setProductionData]  = useState([])
+  const [orderStatusData, setOrderStatusData] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [realtime,  setRealtime]  = useState(false)
   const channelRef = useRef(null)
@@ -168,6 +170,8 @@ export default function Dashboard() {
         { data: lowStockData },
         { data: ordersData },
         { data: chartRaw },
+        { data: productionRaw },
+        { data: allOrdersRaw },
       ] = await Promise.all([
         supabase.from('cutting_executions')
           .select('actual_total')
@@ -200,6 +204,16 @@ export default function Dashboard() {
           .select('type, quantity, created_at')
           .eq('tenant_id', tenantId)
           .gte('created_at', periodStart),
+
+        supabase.from('cutting_executions')
+          .select('actual_total, created_at')
+          .eq('tenant_id', tenantId)
+          .eq('review_status', 'aprovado')
+          .gte('created_at', periodStart),
+
+        supabase.from('cutting_orders')
+          .select('status')
+          .eq('tenant_id', tenantId),
       ])
 
       setKpis({
@@ -219,6 +233,33 @@ export default function Dashboard() {
         else                       grouped[day].saidas   += tx.quantity
       })
       setChartData(Object.values(grouped).sort((a, b) => a.dia.localeCompare(b.dia)))
+
+      // Produção por dia
+      const prodGrouped = {}
+      productionRaw?.forEach(ex => {
+        const day = ex.created_at.slice(0, 10)
+        prodGrouped[day] = (prodGrouped[day] ?? 0) + (ex.actual_total ?? 0)
+      })
+      setProductionData(
+        Object.entries(prodGrouped)
+          .map(([dia, pecas]) => ({ dia, pecas }))
+          .sort((a, b) => a.dia.localeCompare(b.dia))
+      )
+
+      // Status das ordens
+      const STATUS_PT = {
+        pendente:    'Pendente',
+        em_corte:    'Em Corte',
+        em_revisao:  'Em Revisão',
+        concluido:   'Concluído',
+        cancelado:   'Cancelado',
+      }
+      const statusCount = {}
+      allOrdersRaw?.forEach(o => {
+        const key = STATUS_PT[o.status] ?? o.status
+        statusCount[key] = (statusCount[key] ?? 0) + 1
+      })
+      setOrderStatusData(Object.entries(statusCount).map(([name, value]) => ({ name, value })))
     } catch (err) {
       console.error('Erro ao carregar dashboard:', err)
       toast?.error('Erro ao carregar dados do painel.')
@@ -373,6 +414,74 @@ export default function Dashboard() {
                   </AlertItem>
                 ))}
               </AlertList>
+            )}
+          </CardBody>
+        </Card>
+      </DashGrid>
+
+      {/* Gráficos de Produção e Status */}
+      <DashGrid css={{ mt: '$4' }}>
+        {/* Produção por dia */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Peças Produzidas — {PERIODS.find(p => p.value === period)?.label}
+            </CardTitle>
+          </CardHeader>
+          <CardBody>
+            {loading ? (
+              <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                Carregando...
+              </div>
+            ) : productionData.length === 0 ? (
+              <EmptyState>Sem execuções aprovadas no período.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={productionData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="dia" tick={{ fontSize: 11 }} tickFormatter={v => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v) => [v.toLocaleString('pt-BR') + ' pç', 'Peças']} />
+                  <Line type="monotone" dataKey="pecas" name="Peças" stroke="#10b981" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Status das ordens */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição de Ordens por Status</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {loading ? (
+              <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                Carregando...
+              </div>
+            ) : orderStatusData.length === 0 ? (
+              <EmptyState>Nenhuma ordem cadastrada.</EmptyState>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={orderStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {orderStatusData.map((_, i) => (
+                      <Cell key={i} fill={['#3b82f6','#f59e0b','#8b5cf6','#10b981','#ef4444'][i % 5]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [v, n]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
             )}
           </CardBody>
         </Card>

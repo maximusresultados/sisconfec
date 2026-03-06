@@ -3,7 +3,8 @@
  * Inclui exportação CSV e loading skeletons.
  */
 import { useEffect, useState } from 'react'
-import { Printer, Filter, Download } from 'lucide-react'
+import { Printer, Filter, Download, FileText } from 'lucide-react'
+import jsPDF from 'jspdf'
 import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -225,6 +226,131 @@ export default function Reports() {
     toast?.success('Resumo de facção exportado.')
   }
 
+  // --- Helpers PDF ---
+  function buildPDFTable(doc, { title, subtitle, headers, rows }) {
+    const margin = 10
+    const pageW  = doc.internal.pageSize.getWidth()
+    const pageH  = doc.internal.pageSize.getHeight()
+    const tableW = pageW - margin * 2
+    const colW   = tableW / headers.length
+    const rowH   = 7
+    let y = 10
+
+    doc.setFontSize(13)
+    doc.setFont(undefined, 'bold')
+    doc.setTextColor(31, 41, 55)
+    doc.text(title, margin, y + 4)
+    y += 10
+
+    if (subtitle) {
+      doc.setFontSize(8)
+      doc.setFont(undefined, 'normal')
+      doc.setTextColor(107, 114, 128)
+      doc.text(subtitle, margin, y + 3)
+      y += 8
+    }
+
+    // cabeçalho
+    doc.setFillColor(59, 130, 246)
+    doc.rect(margin, y, tableW, rowH, 'F')
+    doc.setFontSize(6.5)
+    doc.setFont(undefined, 'bold')
+    doc.setTextColor(255, 255, 255)
+    headers.forEach((h, i) => doc.text(String(h).toUpperCase(), margin + i * colW + 2, y + rowH - 2))
+    y += rowH
+
+    // linhas
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(7)
+    rows.forEach((row, ri) => {
+      if (y + rowH > pageH - margin) {
+        doc.addPage()
+        y = margin
+      }
+      if (ri % 2 === 0) {
+        doc.setFillColor(248, 250, 252)
+        doc.rect(margin, y, tableW, rowH, 'F')
+      }
+      doc.setTextColor(31, 41, 55)
+      row.forEach((cell, ci) => {
+        doc.text(String(cell ?? '—'), margin + ci * colW + 2, y + rowH - 2)
+      })
+      y += rowH
+    })
+  }
+
+  function exportKardexPDF() {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    const fabricLabel = fabrics.find(f => f.id === selectedFabric)?.description ?? ''
+    buildPDFTable(doc, {
+      title: `Kardex — ${fabricLabel}`,
+      subtitle: `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+      headers: ['Data', 'Tipo', 'Qtd', 'Custo Unit.', 'Total R$', 'Estq. Antes', 'Estq. Depois', 'PM Depois', 'Referência', 'Usuário'],
+      rows: kardex.map(row => [
+        row.created_at ? new Date(row.created_at).toLocaleDateString('pt-BR') : '—',
+        TypeLabelMap[row.type] ?? row.type,
+        Number(row.quantity).toFixed(2),
+        `R$${Number(row.unit_cost ?? 0).toFixed(2)}`,
+        `R$${Number(row.total_cost ?? 0).toFixed(2)}`,
+        Number(row.stock_before ?? 0).toFixed(2),
+        Number(row.stock_after ?? 0).toFixed(2),
+        `R$${Number(row.average_cost_after ?? 0).toFixed(2)}`,
+        row.reference_doc ?? '—',
+        row.created_by_name ?? '—',
+      ]),
+    })
+    doc.save(`kardex-${fabricLabel}.pdf`)
+    toast?.success('PDF do Kardex gerado.')
+  }
+
+  function exportLowStockPDF() {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    buildPDFTable(doc, {
+      title: 'Relatório de Estoque Mínimo',
+      subtitle: `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+      headers: ['Código', 'Descrição', 'Cor', 'Fornecedor', 'Estoque Atual', 'Estoque Mín.', 'Déficit', 'Custo Médio', 'Valor em Risco'],
+      rows: lowStock.map(row => [
+        row.code,
+        row.description,
+        row.color ?? '—',
+        row.supplier ?? '—',
+        Number(row.current_stock).toFixed(2),
+        Number(row.minimum_stock).toFixed(2),
+        Number(row.deficit ?? 0).toFixed(2),
+        `R$${Number(row.average_cost ?? 0).toFixed(2)}`,
+        `R$${Number(row.value_at_risk ?? 0).toFixed(2)}`,
+      ]),
+    })
+    doc.save('estoque-minimo.pdf')
+    toast?.success('PDF de estoque mínimo gerado.')
+  }
+
+  function exportFactionPDF() {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    buildPDFTable(doc, {
+      title: 'Resumo de Facção',
+      subtitle: `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+      headers: ['Costureira', 'Remessas', 'Pç. Enviadas', 'Pç. Retornadas', '% Retorno', 'A Pagar (R$)'],
+      rows: factionSummary.map(row => {
+        const sent     = Number(row.total_pieces_sent) || 0
+        const returned = Number(row.total_pieces_returned) || 0
+        const pct      = sent > 0 ? ((returned / sent) * 100).toFixed(1) + '%' : '—'
+        return [
+          row.seamstress_name ?? row.name ?? '—',
+          row.total_dispatches ?? 0,
+          sent.toLocaleString('pt-BR'),
+          returned.toLocaleString('pt-BR'),
+          pct,
+          row.total_pending_payment != null
+            ? `R$${Number(row.total_pending_payment).toFixed(2)}`
+            : '—',
+        ]
+      }),
+    })
+    doc.save('resumo-faccao.pdf')
+    toast?.success('PDF de facção gerado.')
+  }
+
   const fabricOptions = fabrics.map(f => ({
     value: f.id,
     label: `${f.code} — ${f.description}${f.color ? ` (${f.color})` : ''}`,
@@ -243,7 +369,10 @@ export default function Reports() {
           {activeTab === 'kardex' && kardex.length > 0 && (
             <>
               <Button variant="secondary" size="sm" onClick={exportKardex}>
-                <Download size={14} /> Exportar CSV
+                <Download size={14} /> CSV
+              </Button>
+              <Button variant="secondary" size="sm" onClick={exportKardexPDF}>
+                <FileText size={14} /> PDF
               </Button>
               <Button variant="secondary" size="sm" onClick={() => window.print()} className="no-print">
                 <Printer size={14} /> Imprimir
@@ -251,14 +380,24 @@ export default function Reports() {
             </>
           )}
           {activeTab === 'estoque_minimo' && lowStock.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={exportLowStock}>
-              <Download size={14} /> Exportar CSV
-            </Button>
+            <>
+              <Button variant="secondary" size="sm" onClick={exportLowStock}>
+                <Download size={14} /> CSV
+              </Button>
+              <Button variant="secondary" size="sm" onClick={exportLowStockPDF}>
+                <FileText size={14} /> PDF
+              </Button>
+            </>
           )}
           {activeTab === 'faccao' && factionSummary.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={exportFaction}>
-              <Download size={14} /> Exportar CSV
-            </Button>
+            <>
+              <Button variant="secondary" size="sm" onClick={exportFaction}>
+                <Download size={14} /> CSV
+              </Button>
+              <Button variant="secondary" size="sm" onClick={exportFactionPDF}>
+                <FileText size={14} /> PDF
+              </Button>
+            </>
           )}
         </div>
       </PageHeader>
