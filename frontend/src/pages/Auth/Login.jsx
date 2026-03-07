@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { translateError } from '@/lib/errorMessages'
 import { styled } from '@/styles/stitches.config'
 import { Button } from '@/components/common/Button'
 import { Card } from '@/components/common/Card'
@@ -97,10 +98,7 @@ export default function Login() {
       await signIn(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message === 'Invalid login credentials'
-        ? 'E-mail ou senha incorretos.'
-        : 'Erro ao fazer login. Tente novamente.'
-      )
+      setError(translateError(err))
     } finally {
       setLoading(false)
     }

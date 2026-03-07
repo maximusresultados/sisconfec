@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useInventory } from '@/hooks/useInventory'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -280,7 +281,7 @@ export default function InventoryList() {
       setInactiveFabrics(prev => prev.filter(f => f.id !== fabric.id))
       await loadFabrics()
     } catch (err) {
-      toast?.error(err.message || 'Erro ao reativar tecido.')
+      toast?.error(translateError(err))
     }
   }
 
@@ -417,7 +418,7 @@ export default function InventoryList() {
       toast?.success(`Tecido "${fabric.description}" desativado.`)
       await loadFabrics()
     } catch (err) {
-      toast?.error(err.message || 'Erro ao desativar tecido.')
+      toast?.error(translateError(err))
     }
   }
 

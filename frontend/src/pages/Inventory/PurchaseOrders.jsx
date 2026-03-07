@@ -12,6 +12,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { useInventory } from '@/hooks/useInventory'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/common/Card'
@@ -151,7 +152,7 @@ export default function PurchaseOrders() {
       if (err.code === '42P01') {
         toast?.warning('A tabela de reposição ainda não foi criada. Execute database/purchase_orders_migration.sql no Supabase.')
       } else {
-        toast?.error('Erro ao carregar ordens: ' + err.message)
+        toast?.error('Erro ao carregar ordens: ' + translateError(err))
       }
     } finally {
       setLoading(false)
@@ -222,7 +223,7 @@ export default function PurchaseOrders() {
       toast?.success(`Ordem ${order.order_number} marcada como recebida.`)
       await loadOrders()
     } catch (err) {
-      toast?.error(err.message || 'Erro ao atualizar status.')
+      toast?.error(translateError(err))
     }
   }
 
@@ -237,7 +238,7 @@ export default function PurchaseOrders() {
       toast?.success(`Ordem ${order.order_number} cancelada.`)
       await loadOrders()
     } catch (err) {
-      toast?.error(err.message || 'Erro ao cancelar ordem.')
+      toast?.error(translateError(err))
     }
   }
 

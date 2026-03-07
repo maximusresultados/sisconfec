@@ -7,6 +7,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -156,7 +157,7 @@ export default function ActivityLog() {
       if (error) throw error
       setLogs(data ?? [])
     } catch (err) {
-      toast?.error('Erro ao carregar log: ' + err.message)
+      toast?.error('Erro ao carregar log: ' + translateError(err))
     } finally {
       setLoading(false)
     }

@@ -10,6 +10,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { useExport } from '@/hooks/useExport'
 import { Button } from '@/components/common/Button'
 import { Card, CardBody } from '@/components/common/Card'
@@ -115,7 +116,7 @@ export default function PaymentHistory() {
       if (error) throw error
       setPayments(data ?? [])
     } catch (err) {
-      toast?.error('Erro ao carregar pagamentos: ' + err.message)
+      toast?.error('Erro ao carregar pagamentos: ' + translateError(err))
     } finally {
       setLoading(false)
     }

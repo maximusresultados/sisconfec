@@ -10,6 +10,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -128,7 +129,7 @@ export default function Users() {
       if (error) throw error
       setUsers(data ?? [])
     } catch (err) {
-      toast?.error('Erro ao carregar usuários: ' + err.message)
+      toast?.error('Erro ao carregar usuários: ' + translateError(err))
     } finally {
       setLoading(false)
     }
@@ -176,7 +177,7 @@ export default function Users() {
       toast?.success(`Usuário ${user.full_name} ${newState ? 'ativado' : 'desativado'} com sucesso.`)
       await loadUsers()
     } catch (err) {
-      toast?.error(err.message || 'Erro ao alterar status.')
+      toast?.error(translateError(err))
     }
   }
 

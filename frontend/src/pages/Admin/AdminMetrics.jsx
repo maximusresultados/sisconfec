@@ -14,6 +14,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
@@ -189,7 +190,7 @@ export default function AdminMetrics() {
 
       setUsers(usersData ?? [])
     } catch (err) {
-      toast?.error('Erro ao carregar métricas: ' + err.message)
+      toast?.error('Erro ao carregar métricas: ' + translateError(err))
     } finally {
       setLoading(false)
     }

@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { translateError } from '@/lib/errorMessages'
 import { styled } from '@/styles/stitches.config'
 import { Button } from '@/components/common/Button'
 import { Card } from '@/components/common/Card'
@@ -132,7 +133,7 @@ export default function ResetPassword() {
       setSuccess(true)
       setTimeout(() => navigate('/login'), 2500)
     } catch (err) {
-      setError(err.message || 'Erro ao redefinir senha. Tente novamente.')
+      setError(translateError(err))
     } finally {
       setLoading(false)
     }

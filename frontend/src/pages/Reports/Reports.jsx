@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useInventory } from '@/hooks/useInventory'
 import { useExport } from '@/hooks/useExport'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Button } from '@/components/common/Button'
 import { Card, CardBody } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -149,7 +150,7 @@ export default function Reports() {
       setKardex(data)
       if (data.length === 0) toast?.info('Nenhuma movimentação encontrada para os filtros aplicados.')
     } catch (err) {
-      toast?.error(err.message || 'Erro ao buscar Kardex.')
+      toast?.error(translateError(err))
     } finally {
       setLoadingKardex(false)
     }

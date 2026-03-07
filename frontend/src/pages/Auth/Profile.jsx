@@ -8,6 +8,7 @@ import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { translateError } from '@/lib/errorMessages'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
@@ -97,7 +98,7 @@ export default function Profile() {
       await updateProfile({ full_name: fullName.trim() })
       toast?.success('Nome atualizado com sucesso.')
     } catch (err) {
-      toast?.error(err.message || 'Erro ao atualizar nome.')
+      toast?.error(translateError(err))
     } finally {
       setSavingName(false)
     }
@@ -125,7 +126,7 @@ export default function Profile() {
       setNewPass('')
       setConfirmPass('')
     } catch (err) {
-      toast?.error(err.message || 'Erro ao alterar senha.')
+      toast?.error(translateError(err))
     } finally {
       setSavingPass(false)
     }
