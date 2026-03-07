@@ -84,7 +84,6 @@ export default function Profile() {
   const [savingName,    setSavingName]    = useState(false)
 
   // Form: senha
-  const [currentPass,   setCurrentPass]   = useState('')
   const [newPass,       setNewPass]       = useState('')
   const [confirmPass,   setConfirmPass]   = useState('')
   const [savingPass,    setSavingPass]    = useState(false)
@@ -119,21 +118,10 @@ export default function Profile() {
 
     setSavingPass(true)
     try {
-      // Reautentica para validar a senha atual
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: profile?.email,
-        password: currentPass,
-      })
-      if (signInError) {
-        setPassError('Senha atual incorreta.')
-        return
-      }
-
       const { error } = await supabase.auth.updateUser({ password: newPass })
       if (error) throw error
 
       toast?.success('Senha alterada com sucesso.')
-      setCurrentPass('')
       setNewPass('')
       setConfirmPass('')
     } catch (err) {
@@ -222,16 +210,6 @@ export default function Profile() {
           <CardBody>
             <form onSubmit={handleSavePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <Input
-                id="current_pass"
-                label="Senha atual"
-                type="password"
-                value={currentPass}
-                onChange={e => setCurrentPass(e.target.value)}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-              />
-              <Input
                 id="new_pass"
                 label="Nova senha"
                 type="password"
@@ -254,7 +232,7 @@ export default function Profile() {
                 required
                 autoComplete="new-password"
               />
-              <Button type="submit" disabled={savingPass || !currentPass || !newPass || !confirmPass}>
+              <Button type="submit" disabled={savingPass || !newPass || !confirmPass}>
                 {savingPass ? 'Salvando...' : 'Alterar senha'}
               </Button>
             </form>
