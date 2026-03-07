@@ -5,7 +5,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Scissors, Shirt,
   Users, BarChart2, ChevronRight, LogOut, ClipboardList,
-  ShoppingCart, CreditCard, Moon, Sun, UserCog, Activity, PieChart,
+  ShoppingCart, CreditCard, Moon, Sun, UserCog, Activity, PieChart, X,
 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useAuth } from '@/contexts/AuthContext'
@@ -21,6 +21,22 @@ const SidebarWrapper = styled('aside', {
   display: 'flex',
   flexDirection: 'column',
   flexShrink: 0,
+
+  // Mobile: drawer deslizante
+  '@media (max-width: 767px)': {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    height: '100vh',
+    zIndex: 50,
+    transform: 'translateX(-100%)',
+    transition: 'transform 0.25s ease',
+    overflowY: 'auto',
+    // Aberto: data-open="true"
+    '&[data-open="true"]': {
+      transform: 'translateX(0)',
+    },
+  },
 })
 
 const Logo = styled('div', {
@@ -111,6 +127,23 @@ const IconBtn = styled('button', {
   '& svg': { width: '16px', height: '16px' },
 })
 
+const MobileCloseBtn = styled('button', {
+  display: 'none',
+  '@media (max-width: 767px)': {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  background: 'none',
+  border: 'none',
+  color: '$gray400',
+  cursor: 'pointer',
+  padding: '$1',
+  borderRadius: '$md',
+  '&:hover': { color: '$gray100', backgroundColor: '$gray800' },
+  '& svg': { width: '18px', height: '18px' },
+})
+
 // ------- DEFINIÇÃO DO MENU -------
 const NAV_ITEMS = [
   {
@@ -166,7 +199,7 @@ const ROLE_LABEL = {
 }
 
 // ------- COMPONENTE -------
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose }) {
   const { profile, signOut } = useAuth()
   const { isDark, toggle }   = useTheme()
   const navigate             = useNavigate()
@@ -179,13 +212,21 @@ export default function Sidebar() {
     .toUpperCase() ?? '?'
 
   return (
-    <SidebarWrapper>
+    <SidebarWrapper data-open={isOpen}>
       <Logo>
-        <img
-          src="/logo-sard.png"
-          alt="Sard"
-          style={{ height: '36px', width: 'auto', filter: 'invert(1)', display: 'block' }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <img
+            src="/logo-sard.png"
+            alt="Sard"
+            style={{ height: '36px', width: 'auto', filter: 'invert(1)', display: 'block' }}
+          />
+          {/* Botão fechar visível apenas no mobile */}
+          {onClose && (
+            <MobileCloseBtn onClick={onClose} title="Fechar menu">
+              <X />
+            </MobileCloseBtn>
+          )}
+        </div>
         <span>Gestão de Confecção</span>
       </Logo>
 
@@ -200,7 +241,7 @@ export default function Sidebar() {
             <NavSection key={section}>
               <p>{section}</p>
               {visibleItems.map(({ to, label, icon: Icon }) => (
-                <NavItem key={to} to={to} end={to === '/'}>
+                <NavItem key={to} to={to} end={to === '/'} onClick={onClose}>
                   <Icon />
                   {label}
                   <ChevronRight style={{ marginLeft: 'auto', width: 14, height: 14, opacity: 0.4 }} />
