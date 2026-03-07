@@ -237,7 +237,7 @@ export default function TechnicalSheets() {
         setUploadingImg(false)
       } else if (!imagePreview && editing?.image_url) {
         // Usuário removeu a imagem existente
-        await removeImage(editing.id)
+        await removeImage(editing.id, editing.image_url)
       }
 
       setShowSheet(false)

@@ -159,7 +159,17 @@ export function useTechnicalSheets() {
     return publicUrl
   }, [tenantId])
 
-  const removeImage = useCallback(async (sheetId) => {
+  const removeImage = useCallback(async (sheetId, imageUrl) => {
+    // Remove o arquivo do storage se a URL for conhecida
+    if (imageUrl) {
+      const marker = '/object/public/technical-sheets/'
+      const idx = imageUrl.indexOf(marker)
+      if (idx !== -1) {
+        const storagePath = decodeURIComponent(imageUrl.slice(idx + marker.length))
+        await supabase.storage.from('technical-sheets').remove([storagePath])
+      }
+    }
+
     const { error } = await supabase
       .from('technical_sheets')
       .update({ image_url: null })
