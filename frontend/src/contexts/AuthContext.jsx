@@ -5,7 +5,7 @@
  * e funções de login/logout para toda a árvore de componentes.
  */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase, getUserProfile } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const AuthContext = createContext(null)
 
@@ -14,11 +14,16 @@ export function AuthProvider({ children }) {
   const [profile, setProfile]   = useState(null)
   const [loading, setLoading]   = useState(true)
 
-  // Carrega o perfil complementar (role, tenant_id) após autenticação
-  const loadProfile = useCallback(async () => {
+  // Carrega o perfil complementar usando o userId da sessão (sem re-validar JWT)
+  const loadProfile = useCallback(async (userId) => {
     try {
-      const profileData = await getUserProfile()
-      setProfile(profileData)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, tenant_id, is_active')
+        .eq('id', userId)
+        .single()
+      if (error) throw error
+      setProfile(data)
     } catch (err) {
       console.error('Erro ao carregar perfil:', err)
       setProfile(null)
@@ -30,7 +35,7 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session)
-        if (session) loadProfile()
+        if (session) loadProfile(session.user.id)
       })
       .catch((err) => {
         console.error('Erro ao obter sessão:', err)
@@ -48,7 +53,7 @@ export function AuthProvider({ children }) {
         if (event === 'USER_UPDATED') return
 
         if (session) {
-          await loadProfile()
+          await loadProfile(session.user.id)
           // Registra último acesso apenas no login efetivo
           if (event === 'SIGNED_IN') {
             supabase
@@ -73,10 +78,11 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  // Logout
+  // Logout — limpa estado local imediatamente, invalida sessão em background
   async function signOut() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    setSession(null)
+    setProfile(null)
+    supabase.auth.signOut() // não aguarda — UX imediata
   }
 
   // Atualiza o perfil do usuário (full_name) na tabela profiles
