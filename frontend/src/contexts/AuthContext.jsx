@@ -43,6 +43,10 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session)
+
+        // USER_UPDATED (troca de senha) não recarrega perfil — evita deadlock
+        if (event === 'USER_UPDATED') return
+
         if (session) {
           await loadProfile()
           // Registra último acesso apenas no login efetivo
