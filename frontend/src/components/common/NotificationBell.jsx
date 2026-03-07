@@ -45,9 +45,7 @@ const CountBadge = styled('span', {
 })
 
 const Dropdown = styled('div', {
-  position: 'absolute',
-  bottom: 'calc(100% + 8px)',
-  right: 0,
+  position: 'fixed',
   width: '300px',
   backgroundColor: '$surface',
   border: '1px solid $border',
@@ -101,9 +99,11 @@ const EmptyMsg = styled('div', {
 
 export default function NotificationBell() {
   const { profile } = useAuth()
-  const [alerts, setAlerts] = useState([])
-  const [open,   setOpen]   = useState(false)
+  const [alerts,   setAlerts]   = useState([])
+  const [open,     setOpen]     = useState(false)
+  const [dropPos,  setDropPos]  = useState({ top: 0, left: 0 })
   const wrapperRef = useRef(null)
+  const btnRef     = useRef(null)
 
   const loadAlerts = useCallback(async () => {
     if (!profile?.tenant_id) return
@@ -145,9 +145,23 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [open])
 
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const dropW = 300
+      // Abre acima do botão; ajusta horizontal para não sair da tela
+      let left = rect.left
+      if (left + dropW > window.innerWidth - 8) {
+        left = window.innerWidth - dropW - 8
+      }
+      setDropPos({ bottom: window.innerHeight - rect.top + 8, left })
+    }
+    setOpen(o => !o)
+  }
+
   return (
     <Wrapper ref={wrapperRef}>
-      <BellBtn onClick={() => setOpen(o => !o)} title="Alertas de estoque baixo">
+      <BellBtn ref={btnRef} onClick={handleToggle} title="Alertas de estoque baixo">
         <Bell />
         {alerts.length > 0 && (
           <CountBadge>{alerts.length > 9 ? '9+' : alerts.length}</CountBadge>
@@ -155,7 +169,7 @@ export default function NotificationBell() {
       </BellBtn>
 
       {open && (
-        <Dropdown>
+        <Dropdown style={{ bottom: dropPos.bottom, left: dropPos.left }}>
           <DropHeader>
             <span>Estoque baixo</span>
             <span style={{ color: alerts.length > 0 ? '#b91c1c' : 'inherit' }}>

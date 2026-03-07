@@ -93,12 +93,25 @@ const NavItem = styled(NavLink, {
 })
 
 const UserArea = styled('div', {
-  px: '$6',
-  py: '$4',
+  px: '$4',
+  py: '$3',
   borderTop: '1px solid $gray700',
   display: 'flex',
+  flexDirection: 'column',
+  gap: '$2',
+})
+
+const UserRow = styled('div', {
+  display: 'flex',
   alignItems: 'center',
-  gap: '$3',
+  gap: '$2',
+})
+
+const UserActions = styled('div', {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '$1',
+  paddingLeft: 'calc(36px + $2)', // alinha com o texto (largura do avatar + gap)
 })
 
 const Avatar = styled('div', {
@@ -253,32 +266,36 @@ export default function Sidebar({ isOpen = false, onClose }) {
       </Nav>
 
       <UserArea>
-        <Avatar
-          onClick={() => navigate('/perfil')}
-          style={{ cursor: 'pointer' }}
-          title="Meu perfil"
-        >
-          {initials}
-        </Avatar>
-        <div
-          style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-          onClick={() => navigate('/perfil')}
-          title="Meu perfil"
-        >
-          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {profile?.full_name ?? 'Carregando...'}
+        <UserRow>
+          <Avatar
+            onClick={() => navigate('/perfil')}
+            style={{ cursor: 'pointer' }}
+            title="Meu perfil"
+          >
+            {initials}
+          </Avatar>
+          <div
+            style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+            onClick={() => navigate('/perfil')}
+            title="Meu perfil"
+          >
+            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {profile?.full_name ?? 'Carregando...'}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {ROLE_LABEL[profile?.role] ?? ''}
+            </div>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-            {ROLE_LABEL[profile?.role] ?? ''}
-          </div>
-        </div>
-        <NotificationBell />
-        <IconBtn onClick={toggle} title={isDark ? 'Modo claro' : 'Modo escuro'}>
-          {isDark ? <Sun /> : <Moon />}
-        </IconBtn>
-        <IconBtn onClick={signOut} title="Sair">
-          <LogOut />
-        </IconBtn>
+        </UserRow>
+        <UserActions>
+          <NotificationBell />
+          <IconBtn onClick={toggle} title={isDark ? 'Modo claro' : 'Modo escuro'}>
+            {isDark ? <Sun /> : <Moon />}
+          </IconBtn>
+          <IconBtn onClick={signOut} title="Sair">
+            <LogOut />
+          </IconBtn>
+        </UserActions>
       </UserArea>
     </SidebarWrapper>
   )
