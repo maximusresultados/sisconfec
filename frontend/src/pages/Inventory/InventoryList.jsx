@@ -340,9 +340,14 @@ export default function InventoryList() {
     setSaving(true)
     setFormError('')
     try {
+      const numOrNull = v => (v === '' || v === null || v === undefined) ? null : Number(v)
       const payload = {
         ...fabricForm,
-        minimum_stock: Number(fabricForm.minimum_stock) || 0,
+        minimum_stock:          Number(fabricForm.minimum_stock) || 0,
+        width_cm:               numOrNull(fabricForm.width_cm),
+        weight_kg_per_meter:    numOrNull(fabricForm.weight_kg_per_meter),
+        grammage:               numOrNull(fabricForm.grammage),
+        yield_pieces_per_meter: numOrNull(fabricForm.yield_pieces_per_meter),
       }
       if (editingId) {
         await updateFabric(editingId, payload)
