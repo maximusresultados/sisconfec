@@ -40,14 +40,17 @@ export default defineConfig({
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            // Cache das chamadas ao Supabase com estratégia Network First
-            urlPattern: /^https:\/\/.*\.supabase\.co\//,
+            // Só cacheia GET do Supabase — NUNCA auth nem mutations
+            urlPattern: ({ url, request }) =>
+              url.hostname.includes('supabase.co') &&
+              !url.pathname.includes('/auth/') &&
+              request.method === 'GET',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 5 * 60, // 5 minutos
+                maxAgeSeconds: 5 * 60,
               },
               networkTimeoutSeconds: 10,
             },

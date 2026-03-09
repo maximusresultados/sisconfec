@@ -31,6 +31,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    // Garante que loading nunca fica preso caso getSession() trave
+    const safetyTimer = setTimeout(() => {
+      setLoading(false)
+    }, 5000)
+
     // Sessão inicial
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
@@ -41,6 +46,7 @@ export function AuthProvider({ children }) {
         console.error('Erro ao obter sessão:', err)
       })
       .finally(() => {
+        clearTimeout(safetyTimer)
         setLoading(false)
       })
 
