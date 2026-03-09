@@ -191,7 +191,10 @@ export default function Users() {
     setFormError('')
     try {
       const session = (await supabase.auth.getSession()).data.session
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, {
+      const apiUrl = import.meta.env.VITE_API_URL || ''
+      console.log('[Users] POST', `${apiUrl}/api/users`, { token: session?.access_token ? 'ok' : 'missing' })
+
+      const res = await fetch(`${apiUrl}/api/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,15 +202,27 @@ export default function Users() {
         },
         body: JSON.stringify({ full_name, email, role, password }),
       })
+
+      console.log('[Users] response status:', res.status, res.ok)
+
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || 'Erro ao criar usuário.')
+        let errMsg = 'Erro ao criar usuário.'
+        try {
+          const text = await res.text()
+          console.log('[Users] response body:', text)
+          const err = text ? JSON.parse(text) : {}
+          errMsg = err.message || errMsg
+        } catch {
+          // body vazio ou não-JSON
+        }
+        throw new Error(errMsg)
       }
       toast?.success(`Usuário ${full_name} criado com sucesso.`)
       setModalInvite(false)
       setInviteForm(EMPTY_INVITE)
       await loadUsers()
     } catch (err) {
+      console.error('[Users] erro ao criar:', err)
       setFormError(err.message)
     } finally {
       setSaving(false)
