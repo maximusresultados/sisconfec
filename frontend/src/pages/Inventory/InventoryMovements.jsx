@@ -80,7 +80,8 @@ export default function InventoryMovements() {
   const tenantId = profile?.tenant_id
 
   const [rows,    setRows]    = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     if (!tenantId) return
@@ -89,14 +90,21 @@ export default function InventoryMovements() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('vw_kardex')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(200)
-    setRows(data ?? [])
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const { data, error } = await supabase
+        .from('vw_kardex')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+      setRows(data ?? [])
+    } catch (err) {
+      setLoadError(err.message ?? 'Erro ao carregar movimentações.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -107,6 +115,11 @@ export default function InventoryMovements() {
         <CardBody css={{ px: 0, pb: 0 }}>
           {loading ? (
             <EmptyState><p>Carregando movimentações...</p></EmptyState>
+          ) : loadError ? (
+            <EmptyState>
+              <p style={{ color: '#ef4444' }}>Erro ao carregar: {loadError}</p>
+              <p><button onClick={load} style={{ marginTop: 8, cursor: 'pointer', color: '#3b82f6', background: 'none', border: 'none', fontSize: '0.875rem' }}>Tentar novamente</button></p>
+            </EmptyState>
           ) : rows.length === 0 ? (
             <EmptyState>
               <p>Nenhuma movimentação registrada.</p>
