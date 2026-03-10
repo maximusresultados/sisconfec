@@ -233,7 +233,8 @@ const GradeCompare = styled('table', {
 
 // ------- COMPONENTE -------
 export default function FactionDispatches() {
-  const { isGestorFaccao, isAdmin } = useAuth()
+  const { isGestorFaccao, isAdmin, profile } = useAuth()
+  const tenantId = profile?.tenant_id
   const {
     loading, error,
     fetchSeamstresses, fetchDispatches,
@@ -282,7 +283,10 @@ export default function FactionDispatches() {
 
   const canManage = isGestorFaccao() || isAdmin()
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    if (!tenantId) return
+    loadAll()
+  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAll() {
     const [disp, seam, orders] = await Promise.all([
@@ -806,7 +810,7 @@ export default function FactionDispatches() {
           </FormRow>
           <FormRow>
             <Select
-              label="Ordem de Corte (opcional)"
+              label="Ordem de Corte"
               id="cutting_order_id"
               value={dispatchForm.cutting_order_id}
               onChange={e => handleCuttingOrderChange(e.target.value)}
@@ -832,7 +836,7 @@ export default function FactionDispatches() {
             placeholder="0,00"
             hint={dispatchForm.price_per_piece ? `Total estimado: R$ ${dispatchPaymentCalc}` : 'Deixe em branco se não aplicável'}
           />
-          <FormRow>
+          <FormRow style={{ marginBottom: '8px' }}>
             <Input
               label="Observações"
               id="dispatch_notes"
