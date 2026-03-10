@@ -20,22 +20,9 @@ const STATES_BR = [
   'RS','RO','RR','SC','SP','SE','TO',
 ].map(uf => ({ value: uf, label: uf }))
 
-const PAYMENT_TYPES = [
-  { value: 'por_peca', label: 'Por Peça' },
-  { value: 'por_hora', label: 'Por Hora' },
-  { value: 'fixo',     label: 'Fixo Mensal' },
-]
-
-const PAYMENT_TYPE_LABELS = {
-  por_peca: 'Por Peça',
-  por_hora: 'Por Hora',
-  fixo:     'Fixo',
-}
-
 const EMPTY_FORM = {
   name: '', document: '', phone: '', whatsapp: '',
-  address: '', city: '', state: '', payment_type: 'por_peca',
-  price_per_piece: '', notes: '',
+  address: '', city: '', state: '', notes: '',
 }
 
 // ------- ESTILOS -------
@@ -231,16 +218,14 @@ export default function Seamstresses() {
   function openEdit(row) {
     setEditing(row)
     setForm({
-      name:           row.name ?? '',
-      document:       row.document ?? '',
-      phone:          row.phone ?? '',
-      whatsapp:       row.whatsapp ?? '',
-      address:        row.address ?? '',
-      city:           row.city ?? '',
-      state:          row.state ?? '',
-      payment_type:   row.payment_type ?? 'por_peca',
-      price_per_piece: row.price_per_piece != null ? String(row.price_per_piece) : '',
-      notes:          row.notes ?? '',
+      name:     row.name ?? '',
+      document: row.document ?? '',
+      phone:    row.phone ?? '',
+      whatsapp: row.whatsapp ?? '',
+      address:  row.address ?? '',
+      city:     row.city ?? '',
+      state:    row.state ?? '',
+      notes:    row.notes ?? '',
     })
     setFormError('')
     setShowModal(true)
@@ -263,10 +248,7 @@ export default function Seamstresses() {
     setSaving(true)
     setFormError('')
     try {
-      const payload = {
-        ...form,
-        price_per_piece: form.price_per_piece !== '' ? Number(form.price_per_piece) : null,
-      }
+      const payload = { ...form }
       if (editing) {
         await updateSeamstress(editing.id, payload)
       } else {
@@ -364,8 +346,6 @@ export default function Seamstresses() {
                   <th>Documento</th>
                   <th>WhatsApp</th>
                   <th>Cidade/UF</th>
-                  <th>Pagamento</th>
-                  <th>R$/Peça</th>
                   <th>Remessas</th>
                   <th>Pendente (R$)</th>
                   {canManage && <th>Ações</th>}
@@ -380,16 +360,6 @@ export default function Seamstresses() {
                       <td>{row.document || '—'}</td>
                       <td>{row.whatsapp || row.phone || '—'}</td>
                       <td>{row.city ? `${row.city}/${row.state}` : '—'}</td>
-                      <td>
-                        <Badge color="default">
-                          {PAYMENT_TYPE_LABELS[row.payment_type] ?? row.payment_type}
-                        </Badge>
-                      </td>
-                      <td>
-                        {row.price_per_piece != null
-                          ? `R$ ${Number(row.price_per_piece).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                          : '—'}
-                      </td>
                       <td>{summ?.total_dispatches ?? 0}</td>
                       <td>
                         {summ?.total_pending_payment != null
@@ -483,23 +453,6 @@ export default function Seamstresses() {
             onChange={e => setField('state', e.target.value)}
             options={STATES_BR}
             placeholder="Selecione..."
-          />
-          <Select
-            label="Tipo de Pagamento"
-            id="payment_type"
-            value={form.payment_type}
-            onChange={e => setField('payment_type', e.target.value)}
-            options={PAYMENT_TYPES}
-          />
-          <Input
-            label="Valor por Peça (R$)"
-            id="price_per_piece"
-            type="number"
-            min={0}
-            step="0.01"
-            value={form.price_per_piece}
-            onChange={e => setField('price_per_piece', e.target.value)}
-            placeholder="0,00"
           />
 
           <FormRow>

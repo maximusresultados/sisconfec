@@ -216,6 +216,19 @@ const ReviewRadioGroup = styled('div', {
   },
 })
 
+const ClickableRow = styled('tr', {
+  cursor: 'pointer',
+  '& td': { transition: 'background-color 0.15s' },
+  '&:hover td': { backgroundColor: '$primary50 !important' },
+})
+
+const DetailRow = styled('div', {
+  display: 'flex', gap: '$6', flexWrap: 'wrap', marginBottom: '$3',
+})
+const DetailField = styled('div', { minWidth: 120 })
+const DetailLabel = styled('p', { fontSize: '$xs', color: '$textSecondary', marginBottom: '2px' })
+const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color: '$textPrimary' })
+
 const ArchivedBadge = styled('span', {
   display: 'inline-flex',
   alignItems: 'center',
@@ -345,6 +358,9 @@ export default function CuttingOrders() {
   const [search,       setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+
+  // Detalhe (clique na linha)
+  const [detailOrder, setDetailOrder] = useState(null)
 
   // Modais
   const [showNewOrder,    setShowNewOrder]    = useState(false)
@@ -819,7 +835,7 @@ export default function CuttingOrders() {
               </thead>
               <tbody>
                 {filtered.map(order => (
-                  <tr key={order.id}>
+                  <ClickableRow key={order.id} onClick={() => setDetailOrder(order)}>
                     <td>
                       <strong>{order.order_number}</strong>
                       {order.is_archived && (
@@ -853,7 +869,7 @@ export default function CuttingOrders() {
                         : '—'}
                     </td>
                     {canEdit && (
-                      <td>
+                      <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           {!order.is_archived && (order.status === 'pendente' || order.status === 'em_corte') && (
                             <Button variant="outline" size="xs" onClick={() => openRegisterCut(order)}>
@@ -890,13 +906,133 @@ export default function CuttingOrders() {
                         </div>
                       </td>
                     )}
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </Table>
           )}
         </CardBody>
       </Card>
+
+      {/* Modal — Detalhe da Ordem */}
+      {detailOrder && (() => {
+        const o = detailOrder
+        const sizes   = ['PP','P','M','G','GG','XGG']
+        const qtyKeys = ['qty_pp','qty_p','qty_m','qty_g','qty_gg','qty_xgg']
+        return (
+          <Modal
+            open={!!detailOrder}
+            onClose={() => setDetailOrder(null)}
+            title={`Ordem ${o.order_number}`}
+            size="lg"
+          >
+            <DetailRow>
+              <DetailField>
+                <DetailLabel>Status</DetailLabel>
+                <DetailValue>
+                  <Badge color={STATUS_COLOR_MAP[o.status] ?? 'default'}>
+                    {STATUS_LABEL_MAP[o.status] ?? o.status}
+                  </Badge>
+                </DetailValue>
+              </DetailField>
+              <DetailField>
+                <DetailLabel>Prioridade</DetailLabel>
+                <DetailValue>
+                  <Badge color={PRIORITY_COLOR[o.priority] ?? 'default'}>
+                    {PRIORITY_LABELS[o.priority] ?? o.priority}
+                  </Badge>
+                </DetailValue>
+              </DetailField>
+              {o.due_date && (
+                <DetailField>
+                  <DetailLabel>Prazo</DetailLabel>
+                  <DetailValue>{new Date(o.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}</DetailValue>
+                </DetailField>
+              )}
+              <DetailField>
+                <DetailLabel>Total de Peças</DetailLabel>
+                <DetailValue>{o.total_pieces ?? 0}</DetailValue>
+              </DetailField>
+            </DetailRow>
+
+            {o.description && (
+              <DetailRow>
+                <DetailField style={{ minWidth: '100%' }}>
+                  <DetailLabel>Descrição</DetailLabel>
+                  <DetailValue>{o.description}</DetailValue>
+                </DetailField>
+              </DetailRow>
+            )}
+
+            {o.fabric && (
+              <DetailRow>
+                <DetailField style={{ minWidth: '100%' }}>
+                  <DetailLabel>Tecido</DetailLabel>
+                  <DetailValue>{o.fabric.code} — {o.fabric.description}{o.fabric.color ? ` (${o.fabric.color})` : ''}</DetailValue>
+                </DetailField>
+              </DetailRow>
+            )}
+
+            {o.technical_sheet && (
+              <DetailRow>
+                <DetailField style={{ minWidth: '100%' }}>
+                  <DetailLabel>Ficha Técnica</DetailLabel>
+                  <DetailValue>{o.technical_sheet.product_code} — {o.technical_sheet.product_name}</DetailValue>
+                </DetailField>
+              </DetailRow>
+            )}
+
+            {/* Grade */}
+            <div style={{ marginBottom: 16 }}>
+              <DetailLabel style={{ marginBottom: 8 }}>Grade Planejada</DetailLabel>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {sizes.map((s, i) => {
+                  const qty = o[qtyKeys[i]] ?? 0
+                  if (!qty) return null
+                  return (
+                    <div key={s} style={{ textAlign: 'center', padding: '6px 12px', background: '#f3f4f6', borderRadius: 6 }}>
+                      <div style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 600 }}>{s}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{qty}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {o.quantity_meters && (
+              <DetailRow>
+                <DetailField>
+                  <DetailLabel>Qtd. Tecido</DetailLabel>
+                  <DetailValue>{o.quantity_meters} {o.fabric_quantity_unit ?? 'metros'}</DetailValue>
+                </DetailField>
+              </DetailRow>
+            )}
+
+            {o.notes && (
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', padding: '8px 12px', background: '#f9fafb', borderRadius: 8, marginBottom: 8 }}>
+                <strong style={{ color: '#374151' }}>Obs:</strong> {o.notes}
+              </div>
+            )}
+
+            <ModalFooter>
+              <Button variant="ghost" onClick={() => setDetailOrder(null)}>Fechar</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setDetailOrder(null); generatePDF(o) }}>
+                <Printer size={14} /> Imprimir PDF
+              </Button>
+              {canEdit && !o.is_archived && (o.status === 'pendente' || o.status === 'em_corte') && (
+                <Button variant="outline" size="sm" onClick={() => { setDetailOrder(null); openRegisterCut(o) }}>
+                  <Scissors size={14} /> Registrar Corte
+                </Button>
+              )}
+              {canEdit && !o.is_archived && o.status === 'cortado' && (
+                <Button variant="secondary" size="sm" onClick={() => { setDetailOrder(null); openReview(o) }}>
+                  <CheckCircle size={14} /> Revisar
+                </Button>
+              )}
+            </ModalFooter>
+          </Modal>
+        )
+      })()}
 
       {/* Modal — Nova Ordem */}
       <Modal
