@@ -17,6 +17,7 @@ import { Badge, STATUS_COLOR_MAP, STATUS_LABEL_MAP } from '@/components/common/B
 import { Modal, ModalFooter } from '@/components/common/Modal'
 import { Input } from '@/components/common/Input'
 import { Select } from '@/components/common/Select'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { GradeGrid, formatGradeString, expandGrade } from '@/components/common/GradeGrid'
 
 // ------- CONSTANTES -------
@@ -253,46 +254,53 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
   }, [open, handleClickOutside])
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
       {label && (
         <label htmlFor={id} style={{
-          display: 'block', fontSize: '0.8125rem', fontWeight: 500,
-          color: 'var(--colors-textPrimary)', marginBottom: 4,
+          fontSize: '0.875rem', fontWeight: 500,
+          color: 'var(--colors-textPrimary)',
         }}>
           {label}
         </label>
       )}
-      <input
-        id={id}
-        autoComplete="off"
-        placeholder={open ? 'Digite para buscar...' : (selected ? '' : placeholder)}
-        value={open ? query : (selected?.label ?? '')}
-        onFocus={() => { setOpen(true); setQuery('') }}
-        onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        style={{
-          width: '100%', padding: '8px 12px', fontSize: '0.875rem',
-          fontFamily: 'inherit',
-          border: `1px solid ${open ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
-          borderRadius: 6, outline: 'none', backgroundColor: 'var(--colors-surface)',
-          color: 'var(--colors-textPrimary)', boxSizing: 'border-box',
-          boxShadow: open ? '0 0 0 3px var(--colors-primary100)' : 'none',
-        }}
-      />
-      {value && !open && (
-        <button
-          type="button"
-          onMouseDown={e => { e.preventDefault(); onChange(''); setQuery('') }}
+      {/* moldura igual ao Input */}
+      <div style={{
+        position: 'relative',
+        border: `1px solid ${open ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
+        borderRadius: 6,
+        backgroundColor: 'var(--colors-surface)',
+        boxShadow: open ? '0 0 0 3px var(--colors-primary100)' : 'none',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}>
+        <input
+          id={id}
+          autoComplete="off"
+          placeholder={open ? 'Digite para buscar...' : (selected ? '' : placeholder)}
+          value={open ? query : (selected?.label ?? '')}
+          onFocus={() => { setOpen(true); setQuery('') }}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
           style={{
-            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--colors-textDisabled)', fontSize: 16, lineHeight: 1,
-            padding: '0 2px',
+            width: '100%', padding: '8px 32px 8px 12px', fontSize: '0.875rem',
+            fontFamily: 'inherit', border: 'none', outline: 'none',
+            backgroundColor: 'transparent', color: 'var(--colors-textPrimary)',
+            boxSizing: 'border-box', borderRadius: 6,
           }}
-        >×</button>
-      )}
+        />
+        {value && !open && (
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); onChange(''); setQuery('') }}
+            style={{
+              position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--colors-textDisabled)', fontSize: 18, lineHeight: 1, padding: 0,
+            }}
+          >×</button>
+        )}
+      </div>
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0, zIndex: 50,
           backgroundColor: 'var(--colors-surface)', border: '1px solid var(--colors-border)',
           borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
           maxHeight: 220, overflowY: 'auto',
@@ -306,8 +314,7 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
               key={o.value}
               onMouseDown={e => { e.preventDefault(); onChange(o.value); setOpen(false); setQuery('') }}
               style={{
-                padding: '8px 12px', fontSize: '0.875rem', cursor: 'pointer',
-                fontFamily: 'inherit',
+                padding: '8px 12px', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit',
                 backgroundColor: o.value === value ? 'var(--colors-primary50)' : 'transparent',
                 color: o.value === value ? 'var(--colors-primary700)' : 'var(--colors-textPrimary)',
               }}
@@ -346,6 +353,7 @@ export default function CuttingOrders() {
   const [showNewOrder,    setShowNewOrder]    = useState(false)
   const [showRegisterCut, setShowRegisterCut] = useState(null)
   const [showReview,      setShowReview]      = useState(null)
+  const [confirmCancel,   setConfirmCancel]   = useState(null)
 
   // Formulário Nova Ordem
   const [orderForm,   setOrderForm]   = useState(EMPTY_ORDER_FORM)
@@ -805,13 +813,9 @@ export default function CuttingOrders() {
                               <CheckCircle size={12} /> Revisar
                             </Button>
                           )}
-                          {!order.is_archived && order.status !== 'cancelado' && order.status !== 'aprovado' && (
+                          {!order.is_archived && order.status !== 'cancelado' && (
                             <Button variant="ghost" size="xs" style={{ color: '#ef4444' }}
-                              onClick={() => {
-                                if (window.confirm(`Cancelar ordem ${order.order_number}?`)) {
-                                  updateOrderStatus(order.id, 'cancelado').then(loadAll)
-                                }
-                              }}
+                              onClick={() => setConfirmCancel(order)}
                             >
                               <XCircle size={12} /> Cancelar
                             </Button>
@@ -896,7 +900,7 @@ export default function CuttingOrders() {
           </FormRow>
           <div>
             <Input
-              label={quantityLabel}
+              label="Quantidade de Tecido"
               id="quantity_meters"
               type="number"
               min={0}
@@ -907,29 +911,28 @@ export default function CuttingOrders() {
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--colors-textPrimary)', marginBottom: 4 }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--colors-textPrimary)', marginBottom: 4 }}>
               Unidade
             </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {FABRIC_UNIT_OPTIONS.map(u => (
-                <label key={u.value} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 6, cursor: 'pointer', fontSize: '0.875rem',
-                  border: `1px solid ${orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
-                  backgroundColor: orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary50)' : 'var(--colors-surface)',
-                  color: orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary700)' : 'var(--colors-textPrimary)',
-                  fontFamily: 'inherit',
-                }}>
-                  <input
-                    type="radio"
-                    name="fabric_quantity_unit"
-                    value={u.value}
-                    checked={orderForm.fabric_quantity_unit === u.value}
-                    onChange={() => setOrderField('fabric_quantity_unit', u.value)}
-                    style={{ display: 'none' }}
-                  />
+            {/* Toggle de botão metros / kg */}
+            <div style={{ display: 'flex', border: '1px solid var(--colors-border)', borderRadius: 6, overflow: 'hidden', height: 38 }}>
+              {FABRIC_UNIT_OPTIONS.map((u, i) => (
+                <button
+                  key={u.value}
+                  type="button"
+                  onClick={() => setOrderField('fabric_quantity_unit', u.value)}
+                  style={{
+                    flex: 1, border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontFamily: 'inherit',
+                    borderRight: i < FABRIC_UNIT_OPTIONS.length - 1 ? '1px solid var(--colors-border)' : 'none',
+                    backgroundColor: orderForm.fabric_quantity_unit === u.value
+                      ? 'var(--colors-primary500)' : 'var(--colors-surface)',
+                    color: orderForm.fabric_quantity_unit === u.value ? '#fff' : 'var(--colors-textPrimary)',
+                    fontWeight: orderForm.fabric_quantity_unit === u.value ? 600 : 400,
+                    transition: 'background-color 0.15s, color 0.15s',
+                  }}
+                >
                   {u.label}
-                </label>
+                </button>
               ))}
             </div>
           </div>
@@ -947,7 +950,7 @@ export default function CuttingOrders() {
               onChange={grade => setOrderField('grade', grade)}
             />
           </FormRow>
-          <FormRow>
+          <FormRow style={{ marginBottom: 8 }}>
             <Input
               label="Observações"
               id="notes"
@@ -1015,6 +1018,20 @@ export default function CuttingOrders() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* ConfirmDialog — Cancelar Ordem */}
+      <ConfirmDialog
+        open={!!confirmCancel}
+        onClose={() => setConfirmCancel(null)}
+        onConfirm={async () => {
+          await updateOrderStatus(confirmCancel.id, 'cancelado')
+          loadAll()
+        }}
+        title="Cancelar Ordem de Corte"
+        message={`Cancelar a ordem ${confirmCancel?.order_number}? Esta ação não pode ser desfeita.`}
+        confirmLabel="Cancelar Ordem"
+        danger
+      />
 
       {/* Modal — Revisão de Qualidade */}
       <Modal
