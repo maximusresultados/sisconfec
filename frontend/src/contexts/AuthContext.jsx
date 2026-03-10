@@ -51,15 +51,18 @@ export function AuthProvider({ children }) {
       })
 
     // Listener de mudanças de autenticação
+    // IMPORTANTE: callback NÃO é async — Supabase JS v2 aguarda Promises retornadas,
+    // o que travaria o signInWithPassword enquanto loadProfile faz uma segunda query de rede.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session)
 
         // USER_UPDATED (troca de senha) não recarrega perfil — evita deadlock
         if (event === 'USER_UPDATED') return
 
         if (session) {
-          await loadProfile(session.user.id)
+          // Fire-and-forget: profile carrega em background, páginas reagem ao state change
+          loadProfile(session.user.id)
           // Registra último acesso apenas no login efetivo
           if (event === 'SIGNED_IN') {
             supabase
@@ -81,6 +84,10 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    // Pré-carrega o perfil para que tenantId esteja disponível imediatamente após navigate
+    if (data.session?.user?.id) {
+      await loadProfile(data.session.user.id).catch(() => {})
+    }
     return data
   }
 
