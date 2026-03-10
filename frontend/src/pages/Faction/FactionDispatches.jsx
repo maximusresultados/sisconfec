@@ -292,7 +292,7 @@ export default function FactionDispatches() {
     const [disp, seam, orders] = await Promise.all([
       fetchDispatches(),
       fetchSeamstresses(),
-      fetchOrders({ status: 'aprovado' }),
+      fetchOrders({ status: 'aprovado', hideArchived: true }),
     ])
     setDispatches(disp)
     setSeamstresses(seam)

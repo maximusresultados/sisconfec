@@ -37,9 +37,10 @@ export function useCuttingOrders() {
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
 
-      if (filters.status)   query = query.eq('status', filters.status)
-      if (filters.priority) query = query.eq('priority', filters.priority)
-      if (filters.search)   query = query.or(`order_number.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+      if (filters.status)       query = query.eq('status', filters.status)
+      if (filters.priority)     query = query.eq('priority', filters.priority)
+      if (filters.search)       query = query.or(`order_number.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+      if (filters.hideArchived) query = query.eq('is_archived', false)
 
       const { data, error } = await query
       if (error) throw error
