@@ -256,20 +256,17 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
   return (
     <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
       {label && (
-        <label htmlFor={id} style={{
-          fontSize: '0.875rem', fontWeight: 500,
-          color: 'var(--colors-textPrimary)',
-        }}>
+        <label htmlFor={id} style={{ fontSize: '0.875rem', fontWeight: 500, color: '#111827' }}>
           {label}
         </label>
       )}
       {/* moldura igual ao Input */}
       <div style={{
         position: 'relative',
-        border: `1px solid ${open ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
+        border: `1px solid ${open ? '#3b82f6' : '#e5e7eb'}`,
         borderRadius: 6,
-        backgroundColor: 'var(--colors-surface)',
-        boxShadow: open ? '0 0 0 3px var(--colors-primary100)' : 'none',
+        backgroundColor: '#ffffff',
+        boxShadow: open ? '0 0 0 3px #dbeafe' : 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}>
         <input
@@ -282,7 +279,7 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
           style={{
             width: '100%', padding: '8px 32px 8px 12px', fontSize: '0.875rem',
             fontFamily: 'inherit', border: 'none', outline: 'none',
-            backgroundColor: 'transparent', color: 'var(--colors-textPrimary)',
+            backgroundColor: 'transparent', color: '#111827',
             boxSizing: 'border-box', borderRadius: 6,
           }}
         />
@@ -293,7 +290,7 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
             style={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--colors-textDisabled)', fontSize: 18, lineHeight: 1, padding: 0,
+              color: '#9ca3af', fontSize: 18, lineHeight: 1, padding: 0,
             }}
           >×</button>
         )}
@@ -301,12 +298,12 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0, zIndex: 50,
-          backgroundColor: 'var(--colors-surface)', border: '1px solid var(--colors-border)',
+          backgroundColor: '#ffffff', border: '1px solid #e5e7eb',
           borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
           maxHeight: 220, overflowY: 'auto',
         }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '8px 12px', fontSize: '0.875rem', color: 'var(--colors-textSecondary)' }}>
+            <div style={{ padding: '8px 12px', fontSize: '0.875rem', color: '#6b7280' }}>
               Nenhum resultado encontrado.
             </div>
           ) : filtered.map(o => (
@@ -315,11 +312,11 @@ function SearchableSelect({ label, id, value, onChange, options = [], placeholde
               onMouseDown={e => { e.preventDefault(); onChange(o.value); setOpen(false); setQuery('') }}
               style={{
                 padding: '8px 12px', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit',
-                backgroundColor: o.value === value ? 'var(--colors-primary50)' : 'transparent',
-                color: o.value === value ? 'var(--colors-primary700)' : 'var(--colors-textPrimary)',
+                backgroundColor: o.value === value ? '#eff6ff' : 'transparent',
+                color: o.value === value ? '#1d4ed8' : '#111827',
               }}
-              onMouseOver={e => { if (o.value !== value) e.currentTarget.style.backgroundColor = 'var(--colors-gray50)' }}
-              onMouseOut={e => { e.currentTarget.style.backgroundColor = o.value === value ? 'var(--colors-primary50)' : 'transparent' }}
+              onMouseOver={e => { if (o.value !== value) e.currentTarget.style.backgroundColor = '#f9fafb' }}
+              onMouseOut={e => { e.currentTarget.style.backgroundColor = o.value === value ? '#eff6ff' : 'transparent' }}
             >
               {o.label}
             </div>
@@ -915,7 +912,7 @@ export default function CuttingOrders() {
               Unidade
             </label>
             {/* Toggle de botão metros / kg */}
-            <div style={{ display: 'flex', border: '1px solid var(--colors-border)', borderRadius: 6, overflow: 'hidden', height: 38 }}>
+            <div style={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', height: 38 }}>
               {FABRIC_UNIT_OPTIONS.map((u, i) => (
                 <button
                   key={u.value}
@@ -923,10 +920,9 @@ export default function CuttingOrders() {
                   onClick={() => setOrderField('fabric_quantity_unit', u.value)}
                   style={{
                     flex: 1, border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontFamily: 'inherit',
-                    borderRight: i < FABRIC_UNIT_OPTIONS.length - 1 ? '1px solid var(--colors-border)' : 'none',
-                    backgroundColor: orderForm.fabric_quantity_unit === u.value
-                      ? 'var(--colors-primary500)' : 'var(--colors-surface)',
-                    color: orderForm.fabric_quantity_unit === u.value ? '#fff' : 'var(--colors-textPrimary)',
+                    borderRight: i < FABRIC_UNIT_OPTIONS.length - 1 ? '1px solid #e5e7eb' : 'none',
+                    backgroundColor: orderForm.fabric_quantity_unit === u.value ? '#3b82f6' : '#ffffff',
+                    color: orderForm.fabric_quantity_unit === u.value ? '#ffffff' : '#111827',
                     fontWeight: orderForm.fabric_quantity_unit === u.value ? 600 : 400,
                     transition: 'background-color 0.15s, color 0.15s',
                   }}
