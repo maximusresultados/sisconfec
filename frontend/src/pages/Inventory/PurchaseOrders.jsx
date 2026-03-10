@@ -136,6 +136,7 @@ export default function PurchaseOrders() {
   const pagination = usePagination(filtered, PAGE_SIZE)
 
   const loadOrders = useCallback(async () => {
+    if (!tenantId) return
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -161,9 +162,10 @@ export default function PurchaseOrders() {
   }, [tenantId, toast])
 
   useEffect(() => {
+    if (!tenantId) return
     fetchFabrics().then(setFabrics)
     loadOrders()
-  }, [loadOrders])
+  }, [tenantId, loadOrders])
 
   async function handleCreate() {
     if (!form.order_number.trim() || !form.supplier.trim() || !form.fabric_id || !form.quantity) {
