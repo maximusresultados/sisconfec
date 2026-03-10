@@ -371,9 +371,13 @@ export default function CuttingOrders() {
 
   const canEdit = isCortador?.() || isAdmin?.()
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    if (!profile?.tenant_id) return
+    loadAll()
+  }, [profile?.tenant_id])
 
   async function loadAll() {
+    if (!profile?.tenant_id) return
     const [ords, fabs, shs] = await Promise.all([
       fetchOrders(),
       fetchFabrics(),
