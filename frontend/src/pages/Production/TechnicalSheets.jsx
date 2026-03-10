@@ -43,7 +43,7 @@ const ITEM_UNITS = [
 const ITEM_TYPE_LABELS = { tecido: 'Tecido', linha: 'Linha', botao: 'Botão', ziper: 'Zíper', elastico: 'Elástico', outro: 'Outro' }
 
 const EMPTY_SHEET = { product_code: '', product_name: '', product_type: '', description: '' }
-const EMPTY_ITEM  = { item_type: 'linha', description: '', color: '', quantity_per_piece: '', unit: 'unidade', notes: '' }
+const EMPTY_ITEM  = { item_type: 'linha', description: '', color: '', quantity_per_piece: '', unit: 'unidade', unit_cost: '' }
 
 // ------- ESTILOS -------
 const PageHeader = styled('div', {
@@ -285,7 +285,7 @@ export default function TechnicalSheets() {
       color:              item.color ?? '',
       quantity_per_piece: item.quantity_per_piece ?? '',
       unit:               item.unit ?? 'unidade',
-      notes:              item.notes ?? '',
+      unit_cost:          item.unit_cost ?? '',
     })
     setItemError('')
   }
@@ -307,6 +307,7 @@ export default function TechnicalSheets() {
       const payload = {
         ...itemForm,
         quantity_per_piece: itemForm.quantity_per_piece !== '' ? Number(itemForm.quantity_per_piece) : null,
+        unit_cost:          itemForm.unit_cost !== '' ? Number(itemForm.unit_cost) : null,
       }
       if (editingItem) {
         await updateItem(editingItem.id, payload)
@@ -481,30 +482,63 @@ export default function TechnicalSheets() {
               Insumos {loadingDetail ? '(carregando...)' : `(${detailSheet.items?.length ?? 0})`}
             </DetailSectionTitle>
             {!loadingDetail && detailSheet.items?.length > 0 ? (
-              <ItemTable>
-                <thead>
-                  <tr>
-                    <th>Tipo</th>
-                    <th>Descrição</th>
-                    <th>Cor</th>
-                    <th>Qtd/Peça</th>
-                    <th>Un.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detailSheet.items.map(item => (
-                    <tr key={item.id}>
-                      <td><Badge color="default">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type ?? '—'}</Badge></td>
-                      <td>{item.description}</td>
-                      <td>{item.color || '—'}</td>
-                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {item.quantity_per_piece != null ? Number(item.quantity_per_piece).toLocaleString('pt-BR') : '—'}
-                      </td>
-                      <td>{item.unit ?? '—'}</td>
+              <>
+                <ItemTable>
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Descrição</th>
+                      <th>Cor</th>
+                      <th>Qtd/Peça</th>
+                      <th>Un.</th>
+                      <th>Custo do Insumo</th>
+                      <th>Custo Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </ItemTable>
+                  </thead>
+                  <tbody>
+                    {detailSheet.items.map(item => {
+                      const qty       = item.quantity_per_piece != null ? Number(item.quantity_per_piece) : null
+                      const unitCost  = item.unit_cost != null ? Number(item.unit_cost) : null
+                      const totalCost = qty != null && unitCost != null ? qty * unitCost : null
+                      return (
+                        <tr key={item.id}>
+                          <td><Badge color="default">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type ?? '—'}</Badge></td>
+                          <td>{item.description}</td>
+                          <td>{item.color || '—'}</td>
+                          <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            {qty != null ? qty.toLocaleString('pt-BR') : '—'}
+                          </td>
+                          <td>{item.unit ?? '—'}</td>
+                          <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            {unitCost != null ? unitCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            {totalCost != null ? totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </ItemTable>
+                {/* Custo total de todos os insumos */}
+                {(() => {
+                  const grandTotal = detailSheet.items.reduce((sum, item) => {
+                    const qty      = item.quantity_per_piece != null ? Number(item.quantity_per_piece) : null
+                    const unitCost = item.unit_cost != null ? Number(item.unit_cost) : null
+                    return sum + (qty != null && unitCost != null ? qty * unitCost : 0)
+                  }, 0)
+                  return grandTotal > 0 ? (
+                    <div style={{
+                      marginTop: 8, padding: '6px 12px', borderRadius: 6,
+                      backgroundColor: '#eff6ff', border: '1px solid #bfdbfe',
+                      fontSize: '0.875rem', color: '#1e40af', textAlign: 'right',
+                    }}>
+                      <strong>Custo Total dos Insumos:</strong>{' '}
+                      {grandTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                  ) : null
+                })()}
+              </>
             ) : !loadingDetail ? (
               <p style={{ fontSize: '0.8125rem', color: 'var(--colors-textSecondary)' }}>Nenhum insumo cadastrado.</p>
             ) : null}
@@ -639,41 +673,73 @@ export default function TechnicalSheets() {
       >
         {/* Lista de insumos */}
         {activeSheet?.items?.length > 0 ? (
-          <ItemTable>
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Descrição</th>
-                <th>Cor</th>
-                <th>Qtd/Peça</th>
-                <th>Un.</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeSheet.items.map(item => (
-                <tr key={item.id}>
-                  <td><Badge color="default">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type ?? '—'}</Badge></td>
-                  <td>{item.description}</td>
-                  <td>{item.color || '—'}</td>
-                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {item.quantity_per_piece != null ? Number(item.quantity_per_piece).toLocaleString('pt-BR') : '—'}
-                  </td>
-                  <td>{item.unit ?? '—'}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <Button variant="ghost" size="xs" onClick={() => startEditItem(item)}>
-                        <Edit2 size={11} /> Editar
-                      </Button>
-                      <Button variant="ghost" size="xs" onClick={() => handleRemoveItem(item)}>
-                        <Trash2 size={11} /> Remover
-                      </Button>
-                    </div>
-                  </td>
+          <>
+            <ItemTable>
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Descrição</th>
+                  <th>Cor</th>
+                  <th>Qtd/Peça</th>
+                  <th>Un.</th>
+                  <th>Custo do Insumo</th>
+                  <th>Custo Total</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </ItemTable>
+              </thead>
+              <tbody>
+                {activeSheet.items.map(item => {
+                  const qty       = item.quantity_per_piece != null ? Number(item.quantity_per_piece) : null
+                  const unitCost  = item.unit_cost != null ? Number(item.unit_cost) : null
+                  const totalCost = qty != null && unitCost != null ? qty * unitCost : null
+                  return (
+                    <tr key={item.id}>
+                      <td><Badge color="default">{ITEM_TYPE_LABELS[item.item_type] ?? item.item_type ?? '—'}</Badge></td>
+                      <td>{item.description}</td>
+                      <td>{item.color || '—'}</td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {qty != null ? qty.toLocaleString('pt-BR') : '—'}
+                      </td>
+                      <td>{item.unit ?? '—'}</td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {unitCost != null ? unitCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {totalCost != null ? totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <Button variant="ghost" size="xs" onClick={() => startEditItem(item)}>
+                            <Edit2 size={11} /> Editar
+                          </Button>
+                          <Button variant="ghost" size="xs" onClick={() => handleRemoveItem(item)}>
+                            <Trash2 size={11} /> Remover
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </ItemTable>
+            {(() => {
+              const grandTotal = activeSheet.items.reduce((sum, item) => {
+                const qty      = item.quantity_per_piece != null ? Number(item.quantity_per_piece) : null
+                const unitCost = item.unit_cost != null ? Number(item.unit_cost) : null
+                return sum + (qty != null && unitCost != null ? qty * unitCost : 0)
+              }, 0)
+              return grandTotal > 0 ? (
+                <div style={{
+                  marginTop: 8, padding: '6px 12px', borderRadius: 6,
+                  backgroundColor: '#eff6ff', border: '1px solid #bfdbfe',
+                  fontSize: '0.875rem', color: '#1e40af', textAlign: 'right',
+                }}>
+                  <strong>Custo Total dos Insumos:</strong>{' '}
+                  {grandTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+              ) : null
+            })()}
+          </>
         ) : (
           <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--colors-textSecondary)', fontSize: '0.875rem' }}>
             Nenhum insumo cadastrado ainda.
@@ -721,13 +787,24 @@ export default function TechnicalSheets() {
             options={ITEM_UNITS}
           />
           <Input
-            label="Observações"
-            id="item_notes"
-            value={itemForm.notes}
-            onChange={e => setItemForm(f => ({ ...f, notes: e.target.value }))}
-            placeholder="Notas..."
+            label="Custo do Insumo (R$/un.)"
+            id="item_unit_cost"
+            type="number" min="0" step="0.0001"
+            value={itemForm.unit_cost}
+            onChange={e => setItemForm(f => ({ ...f, unit_cost: e.target.value }))}
+            placeholder="0,0000"
           />
         </ItemFormGrid>
+        {itemForm.quantity_per_piece && itemForm.unit_cost && (
+          <div style={{
+            marginTop: 8, padding: '6px 12px', borderRadius: 6,
+            backgroundColor: '#eff6ff', border: '1px solid #bfdbfe',
+            fontSize: '0.875rem', color: '#1e40af',
+          }}>
+            <strong>Custo Total deste Insumo:</strong>{' '}
+            {(Number(itemForm.quantity_per_piece) * Number(itemForm.unit_cost)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
           {editingItem && (
             <Button variant="secondary" size="sm" onClick={cancelEditItem} disabled={savingItem}>
