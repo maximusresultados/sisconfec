@@ -452,6 +452,24 @@ export default function CuttingOrders() {
     }
   }
 
+  // Converte URL de imagem para base64 e retorna dimensões naturais
+  async function urlToBase64WithDimensions(url) {
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = reader.result
+        const img = new Image()
+        img.onload = () => resolve({ base64, naturalW: img.naturalWidth, naturalH: img.naturalHeight })
+        img.onerror = reject
+        img.src = base64
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+
   async function generatePDF(order) {
     const doc = new jsPDF()
     const margin = 14
@@ -519,6 +537,21 @@ export default function CuttingOrders() {
         doc.text(`Produto: ${sheet.product_name}  (${sheet.product_code})`, margin, y)
         y += 6
         if (sheet.description) { doc.text(`Descrição: ${sheet.description}`, margin, y); y += 6 }
+
+        // Imagem da ficha técnica
+        if (sheet.image_url) {
+          try {
+            const { base64, naturalW, naturalH } = await urlToBase64WithDimensions(sheet.image_url)
+            const maxW = 100 // max 100mm de largura
+            const ratio = naturalH / naturalW
+            const imgW = Math.min(maxW, 182)
+            const imgH = imgW * ratio
+            if (y + imgH + 6 > 275) { doc.addPage(); y = 20 }
+            const fmt = base64.includes('image/png') ? 'PNG' : 'JPEG'
+            doc.addImage(base64, fmt, margin, y, imgW, imgH)
+            y += imgH + 6
+          } catch { /* ignora erro de imagem */ }
+        }
         if (sheet.items?.length > 0) {
           y += 2
           doc.setFont('helvetica', 'bold')
