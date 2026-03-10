@@ -15,12 +15,15 @@ import NotificationBell from '@/components/common/NotificationBell'
 // ------- ESTILOS -------
 const SidebarWrapper = styled('aside', {
   width: '$sidebar',
-  minHeight: '100vh',
+  height: '100vh',
+  position: 'sticky',
+  top: 0,
   backgroundColor: '$gray900',
   color: '$textInverse',
   display: 'flex',
   flexDirection: 'column',
   flexShrink: 0,
+  overflow: 'hidden',
 
   // Mobile: drawer deslizante
   '@media (max-width: 767px)': {
@@ -32,7 +35,6 @@ const SidebarWrapper = styled('aside', {
     transform: 'translateX(-100%)',
     transition: 'transform 0.25s ease',
     overflowY: 'auto',
-    // Aberto: data-open="true"
     '&[data-open="true"]': {
       transform: 'translateX(0)',
     },
