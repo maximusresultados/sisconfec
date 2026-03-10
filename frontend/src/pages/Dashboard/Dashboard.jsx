@@ -191,8 +191,7 @@ export default function Dashboard() {
 
         supabase.from('vw_low_stock_alerts')
           .select('id, code, description, current_stock, minimum_stock, unit')
-          .eq('tenant_id', tenantId)
-          .limit(5),
+          .eq('tenant_id', tenantId),
 
         supabase.from('cutting_orders')
           .select('id, order_number, description, status, total_pieces, created_at')
@@ -462,24 +461,22 @@ export default function Dashboard() {
             ) : orderStatusData.length === 0 ? (
               <EmptyState>Nenhuma ordem cadastrada.</EmptyState>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                   <Pie
                     data={orderStatusData}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     outerRadius={80}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
                   >
                     {orderStatusData.map((_, i) => (
                       <Cell key={i} fill={['#3b82f6','#f59e0b','#8b5cf6','#10b981','#ef4444'][i % 5]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(v, n) => [v, n]} />
-                  <Legend />
+                  <Legend verticalAlign="bottom" height={48} wrapperStyle={{ paddingTop: 8 }} />
                 </PieChart>
               </ResponsiveContainer>
             )}

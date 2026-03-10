@@ -7,7 +7,7 @@
  * Requer migração: database/purchase_orders_migration.sql
  */
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, Search, CheckCircle, XCircle, ShoppingCart } from 'lucide-react'
+import { Plus, RefreshCw, Search, CheckCircle, XCircle, ShoppingCart, CalendarClock } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -93,13 +93,12 @@ const STATUS_OPTIONS = [
 ]
 
 const EMPTY_FORM = {
-  order_number: '',
-  supplier:     '',
-  fabric_id:    '',
-  quantity:     '',
-  unit_cost:    '',
+  order_number:  '',
+  supplier:      '',
+  fabric_id:     '',
+  quantity:      '',
+  unit_cost:     '',
   expected_date: '',
-  notes:        '',
 }
 
 const PAGE_SIZE = 25
@@ -119,7 +118,9 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState('')
   const [formError, setFormError] = useState('')
 
-  const [modalNew,    setModalNew]    = useState(false)
+  const [modalNew,      setModalNew]      = useState(false)
+  const [modalPostpone, setModalPostpone] = useState(null)   // order being postponed
+  const [postponeDate,  setPostponeDate]  = useState('')
   const [confirmReceive, setConfirmReceive] = useState(null)
   const [confirmCancel,  setConfirmCancel]  = useState(null)
 
@@ -179,7 +180,6 @@ export default function PurchaseOrders() {
           order_number:  form.order_number,
           supplier:      form.supplier,
           expected_date: form.expected_date || null,
-          notes:         form.notes || null,
           created_by:    profile?.id,
         })
         .select()
@@ -239,6 +239,27 @@ export default function PurchaseOrders() {
       await loadOrders()
     } catch (err) {
       toast?.error(translateError(err))
+    }
+  }
+
+  async function handlePostpone() {
+    if (!postponeDate) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('purchase_orders')
+        .update({ expected_date: postponeDate })
+        .eq('id', modalPostpone.id)
+        .eq('tenant_id', tenantId)
+      if (error) throw error
+      toast?.success(`Prazo da ordem ${modalPostpone.order_number} prorrogado.`)
+      setModalPostpone(null)
+      setPostponeDate('')
+      await loadOrders()
+    } catch (err) {
+      toast?.error(translateError(err))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -303,6 +324,8 @@ export default function PurchaseOrders() {
                     <th>Fornecedor</th>
                     <th>Tecido</th>
                     <th>Quantidade</th>
+                    <th>Custo Unitário</th>
+                    <th>Custo Total</th>
                     <th>Previsão</th>
                     <th>Status</th>
                     <th>Ações</th>
@@ -310,11 +333,15 @@ export default function PurchaseOrders() {
                 </thead>
                 <tbody>
                   {pagination.paginated.map(o => {
-                    const item    = o.items?.[0]
-                    const fabric  = item?.fabric
-                    const cfg     = STATUS_CONFIG[o.status] ?? { label: o.status, color: 'default' }
+                    const item      = o.items?.[0]
+                    const fabric    = item?.fabric
+                    const cfg       = STATUS_CONFIG[o.status] ?? { label: o.status, color: 'default' }
                     const canReceive = ['pendente', 'aprovado', 'enviado'].includes(o.status)
                     const canCancel  = ['pendente', 'aprovado'].includes(o.status)
+                    const canPostpone = !['recebido', 'cancelado'].includes(o.status)
+                    const qty        = item ? Number(item.quantity_ordered) : 0
+                    const unitCost   = item?.unit_cost ? Number(item.unit_cost) : null
+                    const totalCost  = unitCost != null ? qty * unitCost : null
                     return (
                       <tr key={o.id}>
                         <td><strong>{o.order_number}</strong></td>
@@ -326,7 +353,17 @@ export default function PurchaseOrders() {
                         </td>
                         <td>
                           {item
-                            ? `${Number(item.quantity_ordered).toFixed(2)} ${fabric?.unit ?? ''}`
+                            ? `${qty.toFixed(2)} ${fabric?.unit ?? ''}`
+                            : '—'}
+                        </td>
+                        <td>
+                          {unitCost != null
+                            ? unitCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                            : '—'}
+                        </td>
+                        <td>
+                          {totalCost != null
+                            ? totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                             : '—'}
                         </td>
                         <td>
@@ -335,6 +372,14 @@ export default function PurchaseOrders() {
                         <td><Badge color={cfg.color}>{cfg.label}</Badge></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
+                            {canPostpone && (
+                              <Button variant="secondary" size="xs" onClick={() => {
+                                setModalPostpone(o)
+                                setPostponeDate(o.expected_date?.slice(0, 10) ?? '')
+                              }}>
+                                <CalendarClock size={12} /> Prorrogar
+                              </Button>
+                            )}
                             {canReceive && (
                               <Button variant="success" size="xs" onClick={() => setConfirmReceive(o)}>
                                 <CheckCircle size={12} /> Recebido
@@ -379,18 +424,60 @@ export default function PurchaseOrders() {
           <FormGrid cols="2">
             <Input id="po_qty"   label="Quantidade *" type="number" min="0.01" step="0.01" placeholder="0,00"
               value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
-            <Input id="po_cost"  label="Custo Unitário (R$)" type="number" min="0" step="0.0001" placeholder="0,0000"
+            <Input id="po_cost"  label="Custo do Insumo (R$/un.)" type="number" min="0" step="0.0001" placeholder="0,0000"
               value={form.unit_cost} onChange={e => setForm(f => ({ ...f, unit_cost: e.target.value }))} />
           </FormGrid>
+          {form.quantity && form.unit_cost && (
+            <div style={{
+              padding: '8px 12px', borderRadius: 6, backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe', fontSize: '0.875rem', color: '#1e40af',
+            }}>
+              <strong>Custo Total dos Insumos:</strong>{' '}
+              {(Number(form.quantity) * Number(form.unit_cost)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
+          )}
           <Input id="po_date"  label="Data prevista de chegada" type="date"
             value={form.expected_date} onChange={e => setForm(f => ({ ...f, expected_date: e.target.value }))} />
-          <Input id="po_notes" label="Observações" placeholder="Opcional"
-            value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
         <ModalFooter>
           <Button variant="ghost" onClick={() => setModalNew(false)} disabled={saving}>Cancelar</Button>
           <Button onClick={handleCreate} disabled={saving}>
             {saving ? 'Criando...' : 'Criar Ordem'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Modal Prorrogar Data */}
+      <Modal
+        open={!!modalPostpone}
+        onClose={() => { setModalPostpone(null); setPostponeDate('') }}
+        title={`Prorrogar Prazo — ${modalPostpone?.order_number ?? ''}`}
+        size="sm"
+      >
+        {formError && <ErrorBanner>{formError}</ErrorBanner>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+            Prazo atual:{' '}
+            <strong>
+              {modalPostpone?.expected_date
+                ? new Date(modalPostpone.expected_date).toLocaleDateString('pt-BR')
+                : 'Não definido'}
+            </strong>
+          </p>
+          <Input
+            id="postpone_date"
+            label="Nova data de entrega *"
+            type="date"
+            value={postponeDate}
+            onChange={e => setPostponeDate(e.target.value)}
+          />
+        </div>
+        <ModalFooter>
+          <Button variant="ghost" onClick={() => { setModalPostpone(null); setPostponeDate('') }} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={handlePostpone} disabled={saving || !postponeDate}>
+            {saving ? 'Salvando...' : 'Prorrogar'}
           </Button>
         </ModalFooter>
       </Modal>
