@@ -1,14 +1,16 @@
 /**
  * CuttingOrders — Ordens de Corte com Execução e Revisão de Qualidade
  */
-import { useEffect, useState } from 'react'
-import { Plus, Search, RefreshCw, Scissors, CheckCircle, Printer, XCircle } from 'lucide-react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { Plus, Search, RefreshCw, Scissors, CheckCircle, Printer, XCircle, Archive, ArchiveRestore } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import { styled } from '@/styles/stitches.config'
 import { useCuttingOrders } from '@/hooks/useCuttingOrders'
 import { useInventory } from '@/hooks/useInventory'
 import { useTechnicalSheets } from '@/hooks/useTechnicalSheets'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/common/Button'
 import { Card, CardHeader, CardBody } from '@/components/common/Card'
 import { Badge, STATUS_COLOR_MAP, STATUS_LABEL_MAP } from '@/components/common/Badge'
@@ -49,18 +51,24 @@ const PRIORITY_LABELS = {
   baixa:   'Baixa',
 }
 
+const FABRIC_UNIT_OPTIONS = [
+  { value: 'metro', label: 'metros' },
+  { value: 'kg',    label: 'kg'     },
+]
+
 const EMPTY_GRADE = { pp: 0, p: 0, m: 0, g: 0, gg: 0, xgg: 0 }
 
 const EMPTY_ORDER_FORM = {
-  order_number: '',
-  description: '',
-  fabric_id: '',
-  technical_sheet_id: '',
-  quantity_meters: '',
-  grade: { ...EMPTY_GRADE },
-  priority: 'normal',
-  due_date: '',
-  notes: '',
+  order_number:        '',
+  description:         '',
+  fabric_id:           '',
+  technical_sheet_id:  '',
+  quantity_meters:     '',
+  fabric_quantity_unit: 'metro',
+  grade:               { ...EMPTY_GRADE },
+  priority:            'normal',
+  due_date:            '',
+  notes:               '',
 }
 
 // ------- ESTILOS -------
@@ -88,7 +96,6 @@ const Toolbar = styled('div', {
 const SearchWrapper = styled('div', {
   position: 'relative',
   width: '240px',
-
   '& svg': {
     position: 'absolute',
     left: '$3',
@@ -112,7 +119,7 @@ const SearchInput = styled('input', {
   outline: 'none',
   backgroundColor: '$surface',
   color: '$textPrimary',
-
+  fontFamily: 'inherit',
   '&:focus': {
     borderColor: '$primary500',
     boxShadow: '0 0 0 3px $colors$primary100',
@@ -123,12 +130,12 @@ const FilterSelect = styled('select', {
   px: '$3',
   py: '$2',
   fontSize: '$sm',
+  fontFamily: 'inherit',
   border: '1px solid $border',
   borderRadius: '$md',
   outline: 'none',
   backgroundColor: '$surface',
   color: '$textPrimary',
-
   '&:focus': {
     borderColor: '$primary500',
     boxShadow: '0 0 0 3px $colors$primary100',
@@ -139,7 +146,7 @@ const Table = styled('table', {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '$sm',
-
+  fontFamily: 'inherit',
   th: {
     textAlign: 'left',
     py: '$3',
@@ -152,16 +159,17 @@ const Table = styled('table', {
     letterSpacing: '0.04em',
     whiteSpace: 'nowrap',
     backgroundColor: '$gray50',
+    fontFamily: 'inherit',
   },
-
   td: {
     py: '$3',
     px: '$4',
     borderBottom: '1px solid $border',
     color: '$textPrimary',
     verticalAlign: 'middle',
+    fontFamily: 'inherit',
+    fontSize: '$sm',
   },
-
   'tr:last-child td': { borderBottom: 'none' },
   'tbody tr:hover td': { backgroundColor: '$gray50' },
 })
@@ -196,7 +204,6 @@ const ReviewRadioGroup = styled('div', {
   display: 'flex',
   gap: '$6',
   marginBottom: '$4',
-
   '& label': {
     display: 'flex',
     alignItems: 'center',
@@ -204,12 +211,122 @@ const ReviewRadioGroup = styled('div', {
     fontSize: '$sm',
     cursor: 'pointer',
     color: '$textPrimary',
+    fontFamily: 'inherit',
   },
 })
 
+const ArchivedBadge = styled('span', {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  fontSize: '0.7rem',
+  color: '$textSecondary',
+  backgroundColor: '$gray100',
+  border: '1px solid $border',
+  borderRadius: '$sm',
+  px: '$2',
+  py: '1px',
+  ml: '$2',
+})
+
+// ------- SEARCHABLE SELECT -------
+function SearchableSelect({ label, id, value, onChange, options = [], placeholder = 'Selecione ou busque...' }) {
+  const [query,  setQuery]  = useState('')
+  const [open,   setOpen]   = useState(false)
+  const containerRef = useRef(null)
+
+  const selected = options.find(o => o.value === value)
+  const filtered = options.filter(o =>
+    !query || o.label.toLowerCase().includes(query.toLowerCase())
+  )
+
+  const handleClickOutside = useCallback((e) => {
+    if (containerRef.current && !containerRef.current.contains(e.target)) {
+      setOpen(false)
+      setQuery('')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, handleClickOutside])
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      {label && (
+        <label htmlFor={id} style={{
+          display: 'block', fontSize: '0.8125rem', fontWeight: 500,
+          color: 'var(--colors-textPrimary)', marginBottom: 4,
+        }}>
+          {label}
+        </label>
+      )}
+      <input
+        id={id}
+        autoComplete="off"
+        placeholder={open ? 'Digite para buscar...' : (selected ? '' : placeholder)}
+        value={open ? query : (selected?.label ?? '')}
+        onFocus={() => { setOpen(true); setQuery('') }}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        style={{
+          width: '100%', padding: '8px 12px', fontSize: '0.875rem',
+          fontFamily: 'inherit',
+          border: `1px solid ${open ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
+          borderRadius: 6, outline: 'none', backgroundColor: 'var(--colors-surface)',
+          color: 'var(--colors-textPrimary)', boxSizing: 'border-box',
+          boxShadow: open ? '0 0 0 3px var(--colors-primary100)' : 'none',
+        }}
+      />
+      {value && !open && (
+        <button
+          type="button"
+          onMouseDown={e => { e.preventDefault(); onChange(''); setQuery('') }}
+          style={{
+            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--colors-textDisabled)', fontSize: 16, lineHeight: 1,
+            padding: '0 2px',
+          }}
+        >×</button>
+      )}
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+          backgroundColor: 'var(--colors-surface)', border: '1px solid var(--colors-border)',
+          borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          maxHeight: 220, overflowY: 'auto',
+        }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '8px 12px', fontSize: '0.875rem', color: 'var(--colors-textSecondary)' }}>
+              Nenhum resultado encontrado.
+            </div>
+          ) : filtered.map(o => (
+            <div
+              key={o.value}
+              onMouseDown={e => { e.preventDefault(); onChange(o.value); setOpen(false); setQuery('') }}
+              style={{
+                padding: '8px 12px', fontSize: '0.875rem', cursor: 'pointer',
+                fontFamily: 'inherit',
+                backgroundColor: o.value === value ? 'var(--colors-primary50)' : 'transparent',
+                color: o.value === value ? 'var(--colors-primary700)' : 'var(--colors-textPrimary)',
+              }}
+              onMouseOver={e => { if (o.value !== value) e.currentTarget.style.backgroundColor = 'var(--colors-gray50)' }}
+              onMouseOut={e => { e.currentTarget.style.backgroundColor = o.value === value ? 'var(--colors-primary50)' : 'transparent' }}
+            >
+              {o.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ------- COMPONENTE -------
 export default function CuttingOrders() {
-  const { isCortador, isAdmin } = useAuth()
+  const { isCortador, isAdmin, profile } = useAuth()
+  const toast = useToast()
   const {
     loading, error,
     fetchOrders, createOrder, updateOrderStatus,
@@ -223,11 +340,12 @@ export default function CuttingOrders() {
   const [sheets,       setSheets]       = useState([])
   const [search,       setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
 
   // Modais
   const [showNewOrder,    setShowNewOrder]    = useState(false)
-  const [showRegisterCut, setShowRegisterCut] = useState(null) // order
-  const [showReview,      setShowReview]      = useState(null) // { order, execution }
+  const [showRegisterCut, setShowRegisterCut] = useState(null)
+  const [showReview,      setShowReview]      = useState(null)
 
   // Formulário Nova Ordem
   const [orderForm,   setOrderForm]   = useState(EMPTY_ORDER_FORM)
@@ -246,7 +364,7 @@ export default function CuttingOrders() {
   const [reviewError,  setReviewError]  = useState('')
   const [savingReview, setSavingReview] = useState(false)
 
-  const canEdit = isCortador() || isAdmin()
+  const canEdit = isCortador?.() || isAdmin?.()
 
   useEffect(() => { loadAll() }, [])
 
@@ -261,8 +379,8 @@ export default function CuttingOrders() {
     setSheets(shs)
   }
 
-  // Filtra localmente por busca e status
   const filtered = orders
+    .filter(o => showArchived ? o.is_archived : !o.is_archived)
     .filter(o => {
       const term = search.toLowerCase()
       return (
@@ -275,13 +393,18 @@ export default function CuttingOrders() {
 
   const fabricOptions = fabrics.map(f => ({
     value: f.id,
-    label: `${f.code} — ${f.description}${f.color ? ` (${f.color})` : ''}`,
+    label: `${f.code} — ${f.description}${f.color ? ` (${f.color})` : ''} [${f.current_stock?.toFixed(2) ?? 0} ${f.unit}]`,
+    unit:  f.unit,
   }))
 
   const sheetOptions = sheets.map(s => ({
     value: s.id,
     label: `${s.product_code} — ${s.product_name}`,
   }))
+
+  function setOrderField(key, value) {
+    setOrderForm(f => ({ ...f, [key]: value }))
+  }
 
   function handleSheetChange(sheetId) {
     setOrderField('technical_sheet_id', sheetId)
@@ -293,12 +416,38 @@ export default function CuttingOrders() {
     }
   }
 
+  function handleFabricChange(fabricId) {
+    setOrderField('fabric_id', fabricId)
+    if (fabricId) {
+      const fabric = fabrics.find(f => f.id === fabricId)
+      if (fabric?.unit) {
+        setOrderField('fabric_quantity_unit', fabric.unit === 'kg' ? 'kg' : 'metro')
+      }
+    }
+  }
+
+  async function handleArchive(order) {
+    const action = order.is_archived ? 'desarquivar' : 'arquivar'
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} a ordem ${order.order_number}?`)) return
+    try {
+      const { error } = await supabase
+        .from('cutting_orders')
+        .update({ is_archived: !order.is_archived })
+        .eq('id', order.id)
+        .eq('tenant_id', profile?.tenant_id)
+      if (error) throw error
+      toast?.success(`Ordem ${order.order_number} ${order.is_archived ? 'desarquivada' : 'arquivada'}.`)
+      loadAll()
+    } catch (err) {
+      toast?.error(err.message)
+    }
+  }
+
   async function generatePDF(order) {
     const doc = new jsPDF()
     const margin = 14
     let y = 20
 
-    // Cabeçalho
     doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
     doc.text('ORDEM DE CORTE', margin, y)
@@ -318,7 +467,8 @@ export default function CuttingOrders() {
       y += 6
     }
     if (order.quantity_meters) {
-      doc.text(`Metragem: ${Number(order.quantity_meters).toLocaleString('pt-BR')} metros`, margin, y)
+      const unit = order.fabric_quantity_unit === 'kg' ? 'kg' : 'metros'
+      doc.text(`Quantidade: ${Number(order.quantity_meters).toLocaleString('pt-BR')} ${unit}`, margin, y)
       y += 6
     }
     if (order.due_date) {
@@ -330,7 +480,6 @@ export default function CuttingOrders() {
       y += 6
     }
 
-    // Grade
     y += 4
     doc.setFont('helvetica', 'bold')
     doc.text('GRADE PLANEJADA', margin, y)
@@ -340,14 +489,11 @@ export default function CuttingOrders() {
     const labels = ['PP','P','M','G','GG','XGG']
     sizes.forEach((s, i) => {
       const qty = order[`qty_${s}`] ?? 0
-      if (qty > 0) {
-        doc.text(`${labels[i]}: ${qty}`, margin + (i * 28), y)
-      }
+      if (qty > 0) doc.text(`${labels[i]}: ${qty}`, margin + (i * 28), y)
     })
     y += 6
     doc.text(`Total: ${order.total_pieces ?? 0} peças`, margin, y)
 
-    // Ficha Técnica
     if (order.technical_sheet_id) {
       try {
         const sheet = await fetchSheetById(order.technical_sheet_id)
@@ -355,28 +501,21 @@ export default function CuttingOrders() {
         doc.setLineWidth(0.5)
         doc.line(margin, y, 196, y)
         y += 6
-
         doc.setFontSize(13)
         doc.setFont('helvetica', 'bold')
         doc.text('FICHA TÉCNICA', margin, y)
         y += 7
-
         doc.setFontSize(10)
         doc.setFont('helvetica', 'normal')
         doc.text(`Produto: ${sheet.product_name}  (${sheet.product_code})`, margin, y)
         y += 6
-        if (sheet.description) {
-          doc.text(`Descrição: ${sheet.description}`, margin, y)
-          y += 6
-        }
-
+        if (sheet.description) { doc.text(`Descrição: ${sheet.description}`, margin, y); y += 6 }
         if (sheet.items?.length > 0) {
           y += 2
           doc.setFont('helvetica', 'bold')
           doc.text('Insumos:', margin, y)
           y += 6
           doc.setFont('helvetica', 'normal')
-
           sheet.items.forEach((item, idx) => {
             if (y > 270) { doc.addPage(); y = 20 }
             const tipo = item.item_type ? `[${item.item_type}] ` : ''
@@ -386,9 +525,7 @@ export default function CuttingOrders() {
             y += 5
           })
         }
-      } catch {
-        // se falhar ao buscar a ficha, ignora
-      }
+      } catch { /* ignora */ }
     }
 
     if (order.notes) {
@@ -410,10 +547,6 @@ export default function CuttingOrders() {
     setShowNewOrder(true)
   }
 
-  function setOrderField(key, value) {
-    setOrderForm(f => ({ ...f, [key]: value }))
-  }
-
   async function handleSaveOrder() {
     if (!orderForm.order_number.trim()) {
       setOrderError('O número da ordem é obrigatório.')
@@ -429,14 +562,15 @@ export default function CuttingOrders() {
     setOrderError('')
     try {
       await createOrder({
-        order_number:       orderForm.order_number.trim(),
-        description:        orderForm.description || null,
-        fabric_id:          orderForm.fabric_id || null,
-        technical_sheet_id: orderForm.technical_sheet_id || null,
-        quantity_meters:    orderForm.quantity_meters !== '' ? Number(orderForm.quantity_meters) : null,
-        priority:           orderForm.priority,
-        due_date:           orderForm.due_date || null,
-        notes:              orderForm.notes || null,
+        order_number:         orderForm.order_number.trim(),
+        description:          orderForm.description || null,
+        fabric_id:            orderForm.fabric_id || null,
+        technical_sheet_id:   orderForm.technical_sheet_id || null,
+        quantity_meters:      orderForm.quantity_meters !== '' ? Number(orderForm.quantity_meters) : null,
+        fabric_quantity_unit: orderForm.fabric_quantity_unit,
+        priority:             orderForm.priority,
+        due_date:             orderForm.due_date || null,
+        notes:                orderForm.notes || null,
         ...expandGrade(orderForm.grade, 'qty_'),
       })
       setShowNewOrder(false)
@@ -513,7 +647,6 @@ export default function CuttingOrders() {
       })
       if (reviewStatus === 'aprovado') {
         await updateOrderStatus(showReview.order.id, 'aprovado')
-        // Auto-baixar estoque: usa meters_used da execução (ou quantity_meters da ordem como fallback)
         const metersToDeduct = showReview.execution.meters_used ?? showReview.order.quantity_meters
         if (showReview.order.fabric_id && metersToDeduct) {
           try {
@@ -524,7 +657,6 @@ export default function CuttingOrders() {
               notes:          `Baixa automática — Ordem ${showReview.order.order_number}`,
             })
           } catch (exitErr) {
-            // Aprovação já foi salva; avisa mas não reverte
             setReviewError(`Aprovado, mas falha ao baixar estoque: ${exitErr.message}`)
             setShowReview(null)
             loadAll()
@@ -541,6 +673,10 @@ export default function CuttingOrders() {
     }
   }
 
+  const quantityLabel = orderForm.fabric_quantity_unit === 'kg'
+    ? 'Quantidade de Tecido (kg)'
+    : 'Quantidade de Tecido (metros)'
+
   // ------- RENDER -------
   return (
     <div>
@@ -549,6 +685,13 @@ export default function CuttingOrders() {
         <div style={{ display: 'flex', gap: 12 }}>
           <Button variant="secondary" size="sm" onClick={loadAll}>
             <RefreshCw size={14} /> Atualizar
+          </Button>
+          <Button
+            variant={showArchived ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setShowArchived(v => !v)}
+          >
+            <Archive size={14} /> {showArchived ? 'Ver Ativas' : 'Ver Arquivadas'}
           </Button>
           {canEdit && (
             <Button size="sm" onClick={openNewOrder}>
@@ -582,7 +725,7 @@ export default function CuttingOrders() {
 
         <CardBody css={{ px: 0, pb: 0 }}>
           {error && (
-            <div style={{ padding: '16px', color: '#ef4444', fontSize: '0.875rem' }}>
+            <div style={{ padding: '16px', color: '#ef4444', fontSize: '0.875rem', fontFamily: 'inherit' }}>
               Erro: {error}
             </div>
           )}
@@ -592,7 +735,13 @@ export default function CuttingOrders() {
           ) : filtered.length === 0 ? (
             <EmptyState>
               <Scissors size={36} style={{ opacity: 0.3 }} />
-              <p>{search || statusFilter ? 'Nenhuma ordem encontrada.' : 'Nenhuma ordem de corte cadastrada.'}</p>
+              <p>
+                {showArchived
+                  ? 'Nenhuma ordem arquivada.'
+                  : search || statusFilter
+                    ? 'Nenhuma ordem encontrada.'
+                    : 'Nenhuma ordem de corte cadastrada.'}
+              </p>
             </EmptyState>
           ) : (
             <Table>
@@ -611,16 +760,21 @@ export default function CuttingOrders() {
               <tbody>
                 {filtered.map(order => (
                   <tr key={order.id}>
-                    <td><strong>{order.order_number}</strong></td>
+                    <td>
+                      <strong>{order.order_number}</strong>
+                      {order.is_archived && (
+                        <ArchivedBadge><Archive size={10} /> Arquivada</ArchivedBadge>
+                      )}
+                    </td>
                     <td>
                       {order.fabric
                         ? `${order.fabric.code} — ${order.fabric.description}`
                         : '—'}
                     </td>
                     <td>
-                      <code style={{ fontSize: '0.75rem' }}>
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--colors-textPrimary)' }}>
                         {formatGradeString(order, 'qty_')}
-                      </code>
+                      </span>
                     </td>
                     <td>{order.total_pieces ?? '—'}</td>
                     <td>
@@ -641,17 +795,17 @@ export default function CuttingOrders() {
                     {canEdit && (
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          {(order.status === 'pendente' || order.status === 'em_corte') && (
+                          {!order.is_archived && (order.status === 'pendente' || order.status === 'em_corte') && (
                             <Button variant="outline" size="xs" onClick={() => openRegisterCut(order)}>
                               <Scissors size={12} /> Cortar
                             </Button>
                           )}
-                          {order.status === 'cortado' && (
+                          {!order.is_archived && order.status === 'cortado' && (
                             <Button variant="secondary" size="xs" onClick={() => openReview(order)}>
                               <CheckCircle size={12} /> Revisar
                             </Button>
                           )}
-                          {order.status !== 'cancelado' && order.status !== 'aprovado' && (
+                          {!order.is_archived && order.status !== 'cancelado' && order.status !== 'aprovado' && (
                             <Button variant="ghost" size="xs" style={{ color: '#ef4444' }}
                               onClick={() => {
                                 if (window.confirm(`Cancelar ordem ${order.order_number}?`)) {
@@ -660,6 +814,18 @@ export default function CuttingOrders() {
                               }}
                             >
                               <XCircle size={12} /> Cancelar
+                            </Button>
+                          )}
+                          {(order.status === 'aprovado' || order.status === 'cancelado') && (
+                            <Button
+                              variant={order.is_archived ? 'secondary' : 'ghost'}
+                              size="xs"
+                              onClick={() => handleArchive(order)}
+                            >
+                              {order.is_archived
+                                ? <><ArchiveRestore size={12} /> Desarquivar</>
+                                : <><Archive size={12} /> Arquivar</>
+                              }
                             </Button>
                           )}
                           <Button variant="ghost" size="xs" onClick={() => generatePDF(order)}>
@@ -709,35 +875,64 @@ export default function CuttingOrders() {
             />
           </FormRow>
           <FormRow>
-            <Select
+            <SearchableSelect
               label="Ficha Técnica"
               id="technical_sheet_id"
               value={orderForm.technical_sheet_id}
-              onChange={e => handleSheetChange(e.target.value)}
+              onChange={handleSheetChange}
               options={sheetOptions}
-              placeholder="Selecione uma ficha técnica..."
+              placeholder="Busque ou selecione uma ficha técnica..."
             />
           </FormRow>
           <FormRow>
-            <Select
+            <SearchableSelect
               label="Tecido"
               id="fabric_id"
               value={orderForm.fabric_id}
-              onChange={e => setOrderField('fabric_id', e.target.value)}
+              onChange={handleFabricChange}
               options={fabricOptions}
-              placeholder="Selecione um tecido..."
+              placeholder="Busque ou selecione um tecido..."
             />
           </FormRow>
-          <Input
-            label="Quantidade de Tecido (metros)"
-            id="quantity_meters"
-            type="number"
-            min={0}
-            step="0.01"
-            value={orderForm.quantity_meters}
-            onChange={e => setOrderField('quantity_meters', e.target.value)}
-            placeholder="0,00"
-          />
+          <div>
+            <Input
+              label={quantityLabel}
+              id="quantity_meters"
+              type="number"
+              min={0}
+              step="0.01"
+              value={orderForm.quantity_meters}
+              onChange={e => setOrderField('quantity_meters', e.target.value)}
+              placeholder="0,00"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--colors-textPrimary)', marginBottom: 4 }}>
+              Unidade
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {FABRIC_UNIT_OPTIONS.map(u => (
+                <label key={u.value} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 6, cursor: 'pointer', fontSize: '0.875rem',
+                  border: `1px solid ${orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary500)' : 'var(--colors-border)'}`,
+                  backgroundColor: orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary50)' : 'var(--colors-surface)',
+                  color: orderForm.fabric_quantity_unit === u.value ? 'var(--colors-primary700)' : 'var(--colors-textPrimary)',
+                  fontFamily: 'inherit',
+                }}>
+                  <input
+                    type="radio"
+                    name="fabric_quantity_unit"
+                    value={u.value}
+                    checked={orderForm.fabric_quantity_unit === u.value}
+                    onChange={() => setOrderField('fabric_quantity_unit', u.value)}
+                    style={{ display: 'none' }}
+                  />
+                  {u.label}
+                </label>
+              ))}
+            </div>
+          </div>
           <Input
             label="Prazo"
             id="due_date"
@@ -783,7 +978,7 @@ export default function CuttingOrders() {
         {cutError && <ErrorBanner>{cutError}</ErrorBanner>}
 
         {showRegisterCut && (
-          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', fontSize: '0.875rem' }}>
+          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit' }}>
             Grade planejada:{' '}
             <strong style={{ color: '#111827' }}>
               {formatGradeString(showRegisterCut, 'qty_')}
@@ -831,7 +1026,7 @@ export default function CuttingOrders() {
         {reviewError && <ErrorBanner>{reviewError}</ErrorBanner>}
 
         {showReview?.execution && (
-          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', fontSize: '0.875rem' }}>
+          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit' }}>
             Grade efetiva:{' '}
             <strong style={{ color: '#111827' }}>
               {formatGradeString(showReview.execution, 'actual_qty_')}
@@ -841,26 +1036,16 @@ export default function CuttingOrders() {
         )}
 
         <div style={{ marginBottom: '16px' }}>
-          <p style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '8px', color: '#111827' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '8px', color: '#111827', fontFamily: 'inherit' }}>
             Resultado da Revisão *
           </p>
           <ReviewRadioGroup>
             <label>
-              <input
-                type="radio"
-                value="aprovado"
-                checked={reviewStatus === 'aprovado'}
-                onChange={e => setReviewStatus(e.target.value)}
-              />
+              <input type="radio" value="aprovado" checked={reviewStatus === 'aprovado'} onChange={e => setReviewStatus(e.target.value)} />
               Aprovado
             </label>
             <label>
-              <input
-                type="radio"
-                value="reprovado"
-                checked={reviewStatus === 'reprovado'}
-                onChange={e => setReviewStatus(e.target.value)}
-              />
+              <input type="radio" value="reprovado" checked={reviewStatus === 'reprovado'} onChange={e => setReviewStatus(e.target.value)} />
               Reprovado
             </label>
           </ReviewRadioGroup>

@@ -2,7 +2,7 @@
  * TechnicalSheets — Cadastro e gestão de fichas técnicas de produtos
  */
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Search, Edit2, FileText, Trash2, RefreshCw, ChevronRight, ImagePlus, X } from 'lucide-react'
+import { Plus, Search, Edit2, FileText, Trash2, RefreshCw, ChevronRight, ImagePlus, X, RotateCcw, EyeOff } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { useTechnicalSheets } from '@/hooks/useTechnicalSheets'
 import { useAuth } from '@/contexts/AuthContext'
@@ -112,11 +112,12 @@ const DetailValue = styled('p', { fontSize: '$sm', fontWeight: '$medium', color:
 // ------- COMPONENTE -------
 export default function TechnicalSheets() {
   const { isAdmin, isEncarregadoCorte } = useAuth()
-  const { loading, error, fetchSheets, fetchSheetById, createSheet, updateSheet, deactivateSheet, addItem, updateItem, removeItem, uploadImage, removeImage } = useTechnicalSheets()
+  const { loading, error, fetchSheets, fetchSheetById, createSheet, updateSheet, deactivateSheet, reactivateSheet, addItem, updateItem, removeItem, uploadImage, removeImage } = useTechnicalSheets()
 
-  const [sheets,     setSheets]     = useState([])
-  const [search,     setSearch]     = useState('')
-  const [saving,     setSaving]     = useState(false)
+  const [sheets,       setSheets]       = useState([])
+  const [search,       setSearch]       = useState('')
+  const [showInactive, setShowInactive] = useState(false)
+  const [saving,       setSaving]       = useState(false)
 
   // Modal Ficha
   const [showSheet,  setShowSheet]  = useState(false)
@@ -144,10 +145,10 @@ export default function TechnicalSheets() {
 
   const canManage = isAdmin?.() || isEncarregadoCorte?.()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [showInactive])
 
   async function load() {
-    const data = await fetchSheets()
+    const data = await fetchSheets({ includeInactive: showInactive })
     setSheets(data)
   }
 
@@ -263,6 +264,16 @@ export default function TechnicalSheets() {
     }
   }
 
+  async function handleReactivate(sheet) {
+    if (!window.confirm(`Reativar a ficha técnica "${sheet.product_name}"?`)) return
+    try {
+      await reactivateSheet(sheet.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   // ------- MODAL INSUMOS -------
   async function openItems(sheet) {
     try {
@@ -347,6 +358,13 @@ export default function TechnicalSheets() {
           <Button variant="secondary" size="sm" onClick={load}>
             <RefreshCw size={14} /> Atualizar
           </Button>
+          <Button
+            variant={showInactive ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setShowInactive(v => !v)}
+          >
+            <EyeOff size={14} /> {showInactive ? 'Ocultar Inativas' : 'Ver Inativas'}
+          </Button>
           {canManage && (
             <Button size="sm" onClick={openNew}>
               <Plus size={14} /> Nova Ficha
@@ -391,8 +409,17 @@ export default function TechnicalSheets() {
               </thead>
               <tbody>
                 {filtered.map(sheet => (
-                  <ClickableRow key={sheet.id} onClick={() => openDetail(sheet)}>
-                    <td><strong>{sheet.product_code}</strong></td>
+                  <ClickableRow
+                    key={sheet.id}
+                    onClick={() => openDetail(sheet)}
+                    style={!sheet.is_active ? { opacity: 0.6, backgroundColor: '#fafafa' } : {}}
+                  >
+                    <td>
+                      <strong>{sheet.product_code}</strong>
+                      {!sheet.is_active && (
+                        <Badge color="default" css={{ ml: '$2', fontSize: '0.65rem' }}>Inativa</Badge>
+                      )}
+                    </td>
                     <td>{sheet.product_name}</td>
                     <td>
                       {sheet.product_type
@@ -407,15 +434,23 @@ export default function TechnicalSheets() {
                     {canManage && (
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <Button variant="ghost" size="xs" onClick={() => openItems(sheet)}>
-                            <FileText size={12} /> Insumos
-                          </Button>
-                          <Button variant="ghost" size="xs" onClick={() => openEdit(sheet)}>
-                            <Edit2 size={12} /> Editar
-                          </Button>
-                          <Button variant="ghost" size="xs" onClick={() => handleDeactivate(sheet)}>
-                            <Trash2 size={12} /> Desativar
-                          </Button>
+                          {sheet.is_active ? (
+                            <>
+                              <Button variant="ghost" size="xs" onClick={() => openItems(sheet)}>
+                                <FileText size={12} /> Insumos
+                              </Button>
+                              <Button variant="ghost" size="xs" onClick={() => openEdit(sheet)}>
+                                <Edit2 size={12} /> Editar
+                              </Button>
+                              <Button variant="ghost" size="xs" onClick={() => handleDeactivate(sheet)}>
+                                <Trash2 size={12} /> Desativar
+                              </Button>
+                            </>
+                          ) : (
+                            <Button variant="secondary" size="xs" onClick={() => handleReactivate(sheet)}>
+                              <RotateCcw size={12} /> Reativar
+                            </Button>
+                          )}
                         </div>
                       </td>
                     )}

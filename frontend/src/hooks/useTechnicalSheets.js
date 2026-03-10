@@ -16,7 +16,8 @@ export function useTechnicalSheets() {
   // ------- FICHAS TÉCNICAS -------
 
   const fetchSheets = useCallback(async (filters = {}) => {
-    const noFilters = Object.keys(filters).length === 0
+    const { includeInactive, search } = filters
+    const noFilters = !includeInactive && !search
     const cacheKey  = `sheets:${tenantId}`
 
     if (noFilters) {
@@ -31,11 +32,14 @@ export function useTechnicalSheets() {
         .from('technical_sheets')
         .select('*, items:technical_sheet_items(id)')
         .eq('tenant_id', tenantId)
-        .eq('is_active', true)
         .order('product_name')
 
-      if (filters.search) {
-        query = query.or(`product_name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`)
+      if (!includeInactive) {
+        query = query.eq('is_active', true)
+      }
+
+      if (search) {
+        query = query.or(`product_name.ilike.%${search}%,product_code.ilike.%${search}%`)
       }
 
       const { data, error } = await query
@@ -91,6 +95,10 @@ export function useTechnicalSheets() {
 
   const deactivateSheet = useCallback(async (id) => {
     return updateSheet(id, { is_active: false })
+  }, [updateSheet])
+
+  const reactivateSheet = useCallback(async (id) => {
+    return updateSheet(id, { is_active: true })
   }, [updateSheet])
 
   // ------- INSUMOS -------
@@ -183,7 +191,7 @@ export function useTechnicalSheets() {
   return {
     loading, error,
     fetchSheets, fetchSheetById,
-    createSheet, updateSheet, deactivateSheet,
+    createSheet, updateSheet, deactivateSheet, reactivateSheet,
     addItem, updateItem, removeItem,
     uploadImage, removeImage,
   }
