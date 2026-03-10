@@ -566,7 +566,7 @@ export default function CuttingOrders() {
     setSavingOrder(true)
     setOrderError('')
     try {
-      await createOrder({
+      const newOrder = await createOrder({
         order_number:         orderForm.order_number.trim(),
         description:          orderForm.description || null,
         fabric_id:            orderForm.fabric_id || null,
@@ -578,8 +578,26 @@ export default function CuttingOrders() {
         notes:                orderForm.notes || null,
         ...expandGrade(orderForm.grade, 'qty_'),
       })
+
+      // Fecha a modal imediatamente após o INSERT retornar
       setShowNewOrder(false)
-      loadAll()
+
+      // Atualização otimista: adiciona a nova ordem ao topo da lista
+      // usando os dados de tecido/ficha já carregados localmente
+      const fabric = fabrics.find(f => f.id === orderForm.fabric_id) ?? null
+      const technical_sheet = sheets.find(s => s.id === orderForm.technical_sheet_id) ?? null
+      setOrders(prev => [{
+        ...newOrder,
+        fabric: fabric
+          ? { id: fabric.id, code: fabric.code, description: fabric.description, color: fabric.color }
+          : null,
+        technical_sheet: technical_sheet
+          ? { id: technical_sheet.id, product_code: technical_sheet.product_code, product_name: technical_sheet.product_name }
+          : null,
+      }, ...prev])
+
+      // Recarrega ordens em background (sem bloquear)
+      fetchOrders().then(ords => { if (ords?.length) setOrders(ords) })
     } catch (err) {
       setOrderError(err.message)
     } finally {
