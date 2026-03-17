@@ -158,22 +158,22 @@ const NAV_ITEMS = [
     section: 'Estoque',
     items: [
       { to: '/estoque/tecidos',       label: 'Tecidos',         icon: Package,      roles: ['admin','estoquista'] },
-      { to: '/estoque/movimentacoes', label: 'Movimentações',   icon: BarChart2,    roles: ['admin','estoquista'] },
-      { to: '/estoque/reposicao',     label: 'Reposição',       icon: ShoppingCart, roles: ['admin','estoquista'] },
+      { to: '/estoque/movimentacoes', label: 'Movimentações',   icon: BarChart2,    roles: ['admin'] },
+      { to: '/estoque/reposicao',     label: 'Reposição',       icon: ShoppingCart, roles: ['admin'] },
     ],
   },
   {
     section: 'Produção',
     items: [
-      { to: '/producao/fichas-tecnicas', label: 'Fichas Técnicas', icon: ClipboardList, roles: ['admin','encarregado_corte'] },
-      { to: '/producao/ordens',          label: 'Ordens de Corte', icon: Scissors,      roles: ['admin','encarregado_corte'] },
+      { to: '/producao/fichas-tecnicas', label: 'Fichas Técnicas', icon: ClipboardList, roles: ['admin'] },
+      { to: '/producao/ordens',          label: 'Ordens de Corte', icon: Scissors,      roles: ['admin','encarregado_corte','estoquista'] },
     ],
   },
   {
     section: 'Facção',
     items: [
-      { to: '/faccao/remessas',    label: 'Remessas',          icon: Shirt,       roles: ['admin','gestor_faccao'] },
-      { to: '/faccao/costureiras', label: 'Costureiras',       icon: Users,       roles: ['admin','gestor_faccao'] },
+      { to: '/faccao/remessas',    label: 'Remessas',          icon: Shirt,       roles: ['admin','gestor_faccao','encarregado_corte','estoquista'] },
+      { to: '/faccao/costureiras', label: 'Costureiras',       icon: Users,       roles: ['admin','gestor_faccao','encarregado_corte'] },
       { to: '/faccao/pagamentos',  label: 'Histórico Pagtos',  icon: CreditCard,  roles: ['admin','gestor_faccao'] },
     ],
   },

@@ -5,7 +5,7 @@
  * Criação de novos usuários usa o endpoint backend /api/users (Auth Admin API).
  */
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, Shield, Pencil, UserX, UserCheck, Search } from 'lucide-react'
+import { Plus, RefreshCw, Shield, Pencil, UserX, UserCheck, Search, Trash2 } from 'lucide-react'
 import { styled } from '@/styles/stitches.config'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -118,6 +118,10 @@ export default function Users() {
   // Confirmação de ativar/desativar
   const [confirmTarget, setConfirmTarget] = useState(null)
 
+  // Confirmação de exclusão
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
@@ -229,6 +233,30 @@ export default function Users() {
     }
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const session = (await supabase.auth.getSession()).data.session
+      const apiUrl = import.meta.env.VITE_API_URL || ''
+      const res = await fetch(`${apiUrl}/api/users/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || 'Erro ao excluir usuário.')
+      }
+      toast?.success(`Usuário ${deleteTarget.full_name} excluído com sucesso.`)
+      setDeleteTarget(null)
+      await loadUsers()
+    } catch (err) {
+      toast?.error(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const filtered = users.filter(u => {
     const term = search.toLowerCase()
     return (
@@ -306,16 +334,26 @@ export default function Users() {
                           <Pencil size={12} /> Editar Role
                         </Button>
                         {u.id !== profile?.id && (
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => setConfirmTarget(u)}
-                          >
-                            {u.is_active
-                              ? <><UserX size={12} /> Desativar</>
-                              : <><UserCheck size={12} /> Ativar</>
-                            }
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => setConfirmTarget(u)}
+                            >
+                              {u.is_active
+                                ? <><UserX size={12} /> Desativar</>
+                                : <><UserCheck size={12} /> Ativar</>
+                              }
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              css={{ color: '$danger600', '&:hover': { backgroundColor: '$danger50' } }}
+                              onClick={() => setDeleteTarget(u)}
+                            >
+                              <Trash2 size={12} /> Excluir
+                            </Button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -376,6 +414,17 @@ export default function Users() {
         }
         confirmLabel={confirmTarget?.is_active ? 'Desativar' : 'Ativar'}
         danger={confirmTarget?.is_active}
+      />
+
+      {/* Confirmação de exclusão */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Excluir usuário"
+        message={`Excluir permanentemente ${deleteTarget?.full_name}? Esta ação não pode ser desfeita.`}
+        confirmLabel={deleting ? 'Excluindo...' : 'Excluir'}
+        danger
       />
     </div>
   )

@@ -78,4 +78,42 @@ router.post('/', async (req, res) => {
   }
 })
 
+/**
+ * DELETE /api/users/:id
+ * Remove um usuário do Auth e seu profile. Não permite excluir a si mesmo.
+ */
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params
+  const tenantId = req.user.tenant_id
+
+  if (id === req.user.id) {
+    return res.status(400).json({ message: 'Você não pode excluir sua própria conta.' })
+  }
+
+  try {
+    // Verifica se o usuário pertence ao mesmo tenant
+    const { data: targetProfile, error: fetchError } = await adminClient
+      .from('profiles')
+      .select('id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (fetchError || !targetProfile) {
+      return res.status(404).json({ message: 'Usuário não encontrado.' })
+    }
+
+    // Remove do Auth (o profile é removido em cascata via FK ou trigger)
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(id)
+    if (deleteError) throw deleteError
+
+    // Remove o profile manualmente (caso não haja cascade)
+    await adminClient.from('profiles').delete().eq('id', id).catch(() => {})
+
+    return res.status(200).json({ message: 'Usuário excluído com sucesso.' })
+  } catch (err) {
+    return res.status(500).json({ message: err.message ?? 'Erro ao excluir usuário.' })
+  }
+})
+
 export default router
