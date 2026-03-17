@@ -92,8 +92,8 @@ const ROLE_COLOR = {
 
 const ROLE_LABEL = {
   admin:             'Administrador',
-  estoquista:        'Estoquista',
-  encarregado_corte: 'Enc. de Corte',
+  estoquista:        'Producao 01',
+  encarregado_corte: 'Producao 02',
   gestor_faccao:     'Gestor Facção',
 }
 

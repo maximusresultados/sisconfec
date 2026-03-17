@@ -71,8 +71,8 @@ const InfoValue = styled('span', {
 
 const ROLE_LABEL = {
   admin:             'Administrador',
-  estoquista:        'Estoquista',
-  encarregado_corte: 'Encarregado de Corte',
+  estoquista:        'Producao 01',
+  encarregado_corte: 'Producao 02',
   gestor_faccao:     'Gestor de Facção',
 }
 

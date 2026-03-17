@@ -73,15 +73,15 @@ const FormGrid = styled('div', {
 // ------- OPÇÕES -------
 const ROLE_OPTIONS = [
   { value: 'admin',             label: 'Administrador'       },
-  { value: 'estoquista',        label: 'Estoquista'          },
-  { value: 'encarregado_corte', label: 'Encarregado de Corte'},
+  { value: 'estoquista',        label: 'Producao 01'         },
+  { value: 'encarregado_corte', label: 'Producao 02'         },
   { value: 'gestor_faccao',     label: 'Gestor de Facção'    },
 ]
 
 const ROLE_LABEL = {
   admin:            'Administrador',
-  estoquista:       'Estoquista',
-  encarregado_corte:'Encarregado de Corte',
+  estoquista:       'Producao 01',
+  encarregado_corte:'Producao 02',
   gestor_faccao:    'Gestor de Facção',
 }
 
